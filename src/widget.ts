@@ -93,6 +93,25 @@ const Setting = {
     }
 }
 
+async function login(): Promise<Root> {
+    if (!Setting.isValid()) throw "username or/and password is invalid";
+    let req = new Request("https://myapi.ku.th/auth/login");
+    req.headers = {
+        "Accept": "*/*",
+        "Accept-Encoding": "gzip, deflate, br",
+        "Connection": "keep-alive",
+        "App-key": "txCR5732xYYWDGdd49M3R19o1OVwdRFc",
+        "Accept-Language": "en-US,en;q=0.9,th;0.8",
+        "Origin": "https://my.ku.th",
+        "Referer": "https://my.ku.th"
+    }
+    req.body = Setting.user;
+    return await req.loadJSON();
+}
+
+async function loadData(token: string): Promise<any> {
+}
+
 class Subject {
     private startTime: number = 0;
     private width: number = 0;
