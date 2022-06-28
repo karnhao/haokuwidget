@@ -113,7 +113,7 @@ async function loadData(token: string): Promise<any> {
     let req = new Request("https://myapi.ku.th/...");
 }
 
-async function inputUsernamePassword(): Promise<{username: string, password: string} | void> {
+async function inputUsernamePassword(): Promise<{ username: string, password: string } | void> {
     let a = new Alert();
     a.addTextField("username");
     a.addSecureTextField("password");
@@ -122,7 +122,7 @@ async function inputUsernamePassword(): Promise<{username: string, password: str
     a.title = "Login";
     a.message = "กรุณาใส่ username และ password";
     let res = await a.present()
-    if (res == 1) {
+    if (res == 0) {
         return {
             username: a.textFieldValue(0),
             password: a.textFieldValue(1)
@@ -235,7 +235,60 @@ class Table {
     }
 }
 
-let res = await inputUsernamePassword();
-if (res != null) {
-    console.log(`username: ${res.username} \n password: ${res.password}`);
+
+const menus = {
+    /**
+     * แสดงเมนูเลือกรากฐาน ประกอบไปด้วย Actions, Settings and Cancel.
+     * @returns -1 is cancelled, 0 is Actions, 1 is Settings.
+     */
+    rootMenus: async (): Promise<number> => {
+        let root = new Alert();
+        root.addAction("Actions");
+        root.addAction("Settings");
+        root.addCancelAction("Cancel");
+        root.title = "Choose";
+        root.message = "Would you could you on a car? Eat them eat them here there are!";
+        return await root.present();
+    },
+
+    /**
+     * แสดงเมนูเลือกการกระทำ ประกอบไปด้วย Download Subject Data, Delete Subject Data and cancel.
+     * @returns -1 is cancelled, 0 is Download Subject Data and 1 is Delete Subject Data.
+     */
+    actionMenus: async (): Promise<number> => {
+        let a = new Alert();
+        a.addAction("Download Subject Data again");
+        a.addDestructiveAction("Delete Subject Data");
+        a.addCancelAction("Cancel");
+        a.title = "Choose";
+        a.message = "Choose Actions";
+        return await a.present();
+    },
+
+
+    /**
+     * แสดงเมนูการตั้งค่า ประกอบไปด้วย Background image and cancel.
+     * @returns -1 is cancelled and 0 is Background image.
+     */
+    settingMenus: async (): Promise<number> => {
+        let s = new Alert();
+        s.addAction("Background image");
+        s.addCancelAction("Cancel");
+        s.title = "Choose";
+        s.message = "Choose Actions";
+        return await s.present();
+    }
+}
+
+if (config.runsInApp) {
+    switch (await menus.rootMenus()) {
+        case 0:
+            let res = await menus.actionMenus();
+            if (res == 0) loadData()
+            break;
+        case 1:
+            await menus.settingMenus();
+            break;
+        default:
+    }
 }
