@@ -1,30 +1,60 @@
-const Setting = {
+const localStorage = {
     user: {
         username: undefined,
-        password: undefined
-    },
-    isValid: function () {
-        return this.user.username != null && this.user.password != null;
+        password: undefined,
+        isValid() {
+            return this.username != null && this.password != null;
+        }
     }
 };
+const setting = {
+    backgroundImageUrl: undefined
+};
 async function login() {
-    if (!Setting.isValid())
+    if (!localStorage.user.isValid())
         throw "username or/and password is invalid";
     let req = new Request("https://myapi.ku.th/auth/login");
     req.headers = {
         "Accept": "*/*",
         "Accept-Encoding": "gzip, deflate, br",
-        "Connection": "keep-alive",
         "App-key": "txCR5732xYYWDGdd49M3R19o1OVwdRFc",
         "Accept-Language": "en-US,en;q=0.9,th;0.8",
         "Origin": "https://my.ku.th",
         "Referer": "https://my.ku.th"
     };
-    req.body = Setting.user;
+    req.body = localStorage.user;
     return await req.loadJSON();
 }
-async function loadData(token) {
-    let req = new Request("https://myapi.ku.th/...");
+async function getSchedule(token, stdStatusCode, campusCode, majorCode, userType, facultyCode) {
+    let req = new Request(`https://myapi.ku.th/common/getschedule?stdStatusCode=${stdStatusCode}&campusCode=${campusCode}&majorCode=${majorCode}&userType=${userType}&facultyCode=${facultyCode}`);
+    req.headers = {
+        "Accept": "*/*",
+        "Accept-Encoding": "gzip, deflate, br",
+        "App-key": "txCR5732xYYWDGdd49M3R19o1OVwdRFc",
+        "Accept-Language": "en-US,en;q=0.9,th;0.8",
+        "Origin": "https://my.ku.th",
+        "Referer": "https://my.ku.th",
+        "x-access-token": token
+    };
+    return await req.loadJSON();
+}
+/**
+ * @param token x-access-token
+ * @param cademicYear ปีการศึกษา
+ * @param semester เทอม เช่น 1
+ * @param stdId Student ID
+ */
+async function loadData(token, cademicYear, semester, stdId) {
+    let req = new Request(`https://myapi.ku.th/std-profile/getGroupCourse?cademicYear=${cademicYear}&semester=${semester}&stdId=${stdId}`);
+    req.headers = {
+        "Accept": "*/*",
+        "Accept-Encoding": "gzip, deflate, br",
+        "App-key": "txCR5732xYYWDGdd49M3R19o1OVwdRFc",
+        "Accept-Language": "en-US,en;q=0.9,th;0.8",
+        "Origin": "https://my.ku.th",
+        "Referer": "https://my.ku.th",
+        "x-access-token": token
+    };
 }
 async function inputUsernamePassword() {
     let a = new Alert();
@@ -35,7 +65,7 @@ async function inputUsernamePassword() {
     a.title = "Login";
     a.message = "กรุณาใส่ username และ password";
     let res = await a.present();
-    if (res == 1) {
+    if (res == 0) {
         return {
             username: a.textFieldValue(0),
             password: a.textFieldValue(1)
@@ -125,8 +155,70 @@ class Table {
         return new Table();
     }
 }
-let res = await inputUsernamePassword();
-if (res != null) {
-    console.log(`username: ${res.username} \n password: ${res.password}`);
+const menus = {
+    /**
+     * แสดงเมนูเลือกรากฐาน ประกอบไปด้วย Actions, Settings and Cancel.
+     * @returns -1 is cancelled, 0 is Actions, 1 is Settings.
+     */
+    rootMenus: async () => {
+        let root = new Alert();
+        root.addAction("Actions");
+        root.addAction("Settings");
+        root.addCancelAction("Cancel");
+        root.title = "Choose";
+        root.message = "Would you could you on a car? Eat them eat them here there are!";
+        return await root.present();
+    },
+    /**
+     * แสดงเมนูเลือกการกระทำ ประกอบไปด้วย Download Subject Data, Delete Subject Data and cancel.
+     * @returns -1 is cancelled, 0 is Download Subject Data and 1 is Delete Subject Data.
+     */
+    actionMenus: async () => {
+        let a = new Alert();
+        a.addAction("Download Subject Data again");
+        a.addDestructiveAction("Delete Subject Data");
+        a.addCancelAction("Cancel");
+        a.title = "Choose";
+        a.message = "Choose Actions";
+        return await a.present();
+    },
+    /**
+     * แสดงเมนูการตั้งค่า ประกอบไปด้วย Background image and cancel.
+     * @returns -1 is cancelled and 0 is Background image.
+     */
+    settingMenus: async () => {
+        let s = new Alert();
+        s.addAction("Background image");
+        s.addCancelAction("Cancel");
+        s.title = "Choose";
+        s.message = "Choose Actions";
+        return await s.present();
+    }
+};
+async function downloadSubjectData() {
+    let input = await inputUsernamePassword();
+    if (input == null)
+        throw "Invalid input";
+}
+if (config.runsInApp) {
+    switch (await menus.rootMenus()) {
+        case 0:
+            let res = await menus.actionMenus();
+            switch (res) {
+                case 0:
+                    // download subject data
+                    break;
+                case 1:
+                    // delete subject data
+                    break;
+                default:
+                    break;
+            }
+            break;
+        case 1:
+            await menus.settingMenus();
+            break;
+        default:
+    }
 }
 export {};

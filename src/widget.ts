@@ -1,116 +1,85 @@
-export interface Root {
-    code: string
-    message: string
-    accesstoken: string
-    renewtoken: string
-    user: User
-    cache: boolean
-}
+import { Root } from './interfaces/login';
+import { GroupCourseRoot } from './interfaces/groupcourse';
 
-export interface User {
-    loginName: string
-    userType: string
-    idCode: string
-    titleTh: string
-    titleEn: string
-    firstNameTh: string
-    firstNameEn: string
-    middleNameTh: any
-    middleNameEn: any
-    lastNameTh: string
-    lastNameEn: string
-    avatar: string
-    gender: string
-    student: Student
-    roleMenus: RoleMenu[]
-}
-
-export interface Student {
-    loginName: string
-    stdId: string
-    stdCode: string
-    titleTh: string
-    titleEn: string
-    firstNameTh: string
-    middleNameTh: any
-    lastNameTh: string
-    firstNameEn: string
-    middleNameEn: any
-    lastNameEn: string
-    copenId: string
-    copenNameTh: string
-    copenNameEn: string
-    campusCode: string
-    campusNameTh: string
-    campusNameEn: string
-    facultyCode: string
-    facultyNameTh: string
-    facultyNameEn: string
-    departmentCode: string
-    departmentNameTh: string
-    departmentNameEn: string
-    majorCode: string
-    majorNameTh: string
-    majorNameEn: string
-    nationCode: string
-    nationalityNameTh: string
-    nationalityNameEn: string
-    studentStatusCode: string
-    studentStatusNameTh: string
-    studentStatusNameEn: string
-    studentTypeCode: string
-    studentTypeNameTh: string
-    studentTypeNameEn: string
-    edulevelCode: string
-    edulevelNameTh: string
-    edulevelNameEn: string
-    studentYear: string
-    advisorId: string
-    advisorNameTh: string
-    advisorNameEn: string
-    positionTh: string
-    email: string
-    mobileNo: string
-}
-
-export interface RoleMenu {
-    menuId: number
-    menuNameTh: string
-    menuUrl?: string
-    menuIcon?: string
-    parentMenuId: number
-    menuType: number
-}
-
-
-const Setting = {
+interface LocalStorage {
     user: {
-        username: undefined,
-        password: undefined
-    },
-    isValid: function () {
-        return this.user.username != null && this.user.password != null;
+        username: string | undefined,
+        password: string | undefined,
+        isValid(): boolean
     }
 }
 
+interface Setting {
+    backgroundImageUrl: string | undefined
+}
+
+const localStorage: LocalStorage = {
+    user: {
+        username: undefined,
+        password: undefined,
+        isValid() {
+            return this.username != null && this.password != null;
+        }
+    }
+}
+
+const setting: Setting = {
+    backgroundImageUrl: undefined
+}
+
 async function login(): Promise<Root> {
-    if (!Setting.isValid()) throw "username or/and password is invalid";
+    if (!localStorage.user.isValid()) throw "username or/and password is invalid";
     let req = new Request("https://myapi.ku.th/auth/login");
     req.headers = {
         "Accept": "*/*",
         "Accept-Encoding": "gzip, deflate, br",
-        "Connection": "keep-alive",
         "App-key": "txCR5732xYYWDGdd49M3R19o1OVwdRFc",
         "Accept-Language": "en-US,en;q=0.9,th;0.8",
         "Origin": "https://my.ku.th",
         "Referer": "https://my.ku.th"
     }
-    req.body = Setting.user;
+    req.body = localStorage.user;
     return await req.loadJSON();
 }
 
-async function loadData(token: string): Promise<any> {
-    let req = new Request("https://myapi.ku.th/...");
+async function getSchedule(
+    token: string,
+    stdStatusCode: string,
+    campusCode: string,
+    majorCode: string,
+    userType: string,
+    facultyCode: string
+): Promise<{ code: string, cache: boolean, results: [{ academicYr: number, semester: number }] }> {
+    let req = new Request(`https://myapi.ku.th/common/getschedule?stdStatusCode=${stdStatusCode}&campusCode=${campusCode}&majorCode=${majorCode}&userType=${userType}&facultyCode=${facultyCode}`);
+    req.headers = {
+        "Accept": "*/*",
+        "Accept-Encoding": "gzip, deflate, br",
+        "App-key": "txCR5732xYYWDGdd49M3R19o1OVwdRFc",
+        "Accept-Language": "en-US,en;q=0.9,th;0.8",
+        "Origin": "https://my.ku.th",
+        "Referer": "https://my.ku.th",
+        "x-access-token": token
+    }
+    return await req.loadJSON();
+}
+
+/**
+ * @param token x-access-token
+ * @param cademicYear ปีการศึกษา
+ * @param semester เทอม เช่น 1
+ * @param stdId Student ID
+ */
+async function loadData(token: string, cademicYear: string, semester: string, stdId: string): Promise<any> {
+    let req = new Request(`https://myapi.ku.th/std-profile/getGroupCourse?cademicYear=${cademicYear}&semester=${semester}&stdId=${stdId}`);
+    req.headers = {
+        "Accept": "*/*",
+        "Accept-Encoding": "gzip, deflate, br",
+        "App-key": "txCR5732xYYWDGdd49M3R19o1OVwdRFc",
+        "Accept-Language": "en-US,en;q=0.9,th;0.8",
+        "Origin": "https://my.ku.th",
+        "Referer": "https://my.ku.th",
+        "x-access-token": token
+    }
 }
 
 async function inputUsernamePassword(): Promise<{ username: string, password: string } | void> {
@@ -280,11 +249,26 @@ const menus = {
     }
 }
 
+async function downloadSubjectData() {
+    let input = await inputUsernamePassword();
+    if (input == null) throw "Invalid input";
+
+}
+
 if (config.runsInApp) {
     switch (await menus.rootMenus()) {
         case 0:
             let res = await menus.actionMenus();
-            if (res == 0) loadData()
+            switch (res) {
+                case 0:
+                    // download subject data
+                    break;
+                case 1:
+                    // delete subject data
+                    break;
+                default:
+                    break;
+            }
             break;
         case 1:
             await menus.settingMenus();
