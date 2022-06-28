@@ -110,6 +110,24 @@ async function login(): Promise<Root> {
 }
 
 async function loadData(token: string): Promise<any> {
+    let req = new Request("https://myapi.ku.th/...");
+}
+
+async function inputUsernamePassword(): Promise<{username: string, password: string} | void> {
+    let a = new Alert();
+    a.addTextField("username");
+    a.addSecureTextField("password");
+    a.addAction("Summit");
+    a.addCancelAction("Cancel");
+    a.title = "Login";
+    a.message = "กรุณาใส่ username และ password";
+    let res = await a.present()
+    if (res == 1) {
+        return {
+            username: a.textFieldValue(0),
+            password: a.textFieldValue(1)
+        }
+    }
 }
 
 class Subject {
@@ -215,4 +233,9 @@ class Table {
         //TODO : parse data
         return new Table();
     }
+}
+
+let res = await inputUsernamePassword();
+if (res != null) {
+    console.log(`username: ${res.username} \n password: ${res.password}`);
 }

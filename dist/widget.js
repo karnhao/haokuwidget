@@ -1,4 +1,3 @@
-"use strict";
 const Setting = {
     user: {
         username: undefined,
@@ -8,6 +7,41 @@ const Setting = {
         return this.user.username != null && this.user.password != null;
     }
 };
+async function login() {
+    if (!Setting.isValid())
+        throw "username or/and password is invalid";
+    let req = new Request("https://myapi.ku.th/auth/login");
+    req.headers = {
+        "Accept": "*/*",
+        "Accept-Encoding": "gzip, deflate, br",
+        "Connection": "keep-alive",
+        "App-key": "txCR5732xYYWDGdd49M3R19o1OVwdRFc",
+        "Accept-Language": "en-US,en;q=0.9,th;0.8",
+        "Origin": "https://my.ku.th",
+        "Referer": "https://my.ku.th"
+    };
+    req.body = Setting.user;
+    return await req.loadJSON();
+}
+async function loadData(token) {
+    let req = new Request("https://myapi.ku.th/...");
+}
+async function inputUsernamePassword() {
+    let a = new Alert();
+    a.addTextField("username");
+    a.addSecureTextField("password");
+    a.addAction("Summit");
+    a.addCancelAction("Cancel");
+    a.title = "Login";
+    a.message = "กรุณาใส่ username และ password";
+    let res = await a.present();
+    if (res == 1) {
+        return {
+            username: a.textFieldValue(0),
+            password: a.textFieldValue(1)
+        };
+    }
+}
 class Subject {
     startTime = 0;
     width = 0;
@@ -91,12 +125,8 @@ class Table {
         return new Table();
     }
 }
-class User {
-    id;
-    name_th;
-    name_en;
-    static parse(data) {
-        //TODO : parse data
-        return new User();
-    }
+let res = await inputUsernamePassword();
+if (res != null) {
+    console.log(`username: ${res.username} \n password: ${res.password}`);
 }
+export {};
