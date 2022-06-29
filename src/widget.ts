@@ -69,7 +69,7 @@ async function getSchedule(
  * @param semester เทอม เช่น 1
  * @param stdId Student ID
  */
-async function loadData(token: string, cademicYear: string, semester: string, stdId: string): Promise<any> {
+async function loadData(token: string, cademicYear: string, semester: string, stdId: string): Promise<GroupCourseRoot> {
     let req = new Request(`https://myapi.ku.th/std-profile/getGroupCourse?cademicYear=${cademicYear}&semester=${semester}&stdId=${stdId}`);
     req.headers = {
         "Accept": "*/*",
@@ -80,6 +80,7 @@ async function loadData(token: string, cademicYear: string, semester: string, st
         "Referer": "https://my.ku.th",
         "x-access-token": token
     }
+    return await req.loadJSON();
 }
 
 async function inputUsernamePassword(): Promise<{ username: string, password: string } | void> {
@@ -252,6 +253,22 @@ const menus = {
 async function downloadSubjectData() {
     let input = await inputUsernamePassword();
     if (input == null) throw "Invalid input";
+    let r = await login();
+    let schedule = await getSchedule(
+        r.accesstoken,
+        r.user.student.studentStatusCode,
+        r.user.student.campusCode,
+        r.user.student.majorCode,
+        r.user.userType,
+        r.user.student.facultyCode
+    );
+    if (schedule == null) throw "Invalid schedule";
+    return await loadData(
+        r.accesstoken,
+        schedule.results[0].academicYr.toString(),
+        schedule.results[0].semester.toString(),
+        r.user.student.stdId
+    );
 
 }
 
@@ -262,6 +279,7 @@ if (config.runsInApp) {
             switch (res) {
                 case 0:
                     // download subject data
+                    (await downloadSubjectData())
                     break;
                 case 1:
                     // delete subject data
