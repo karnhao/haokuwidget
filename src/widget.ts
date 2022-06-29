@@ -1,34 +1,21 @@
 import { Root } from './interfaces/login';
 import { GroupCourseRoot } from './interfaces/groupcourse';
-
-interface LocalStorage {
-    user: {
-        username: string | undefined,
-        password: string | undefined,
-        isValid(): boolean
-    }
-}
+import { Storage } from './interfaces/storage'
 
 interface Setting {
     backgroundImageUrl: string | undefined
 }
 
-const localStorage: LocalStorage = {
-    user: {
-        username: undefined,
-        password: undefined,
-        isValid() {
-            return this.username != null && this.password != null;
-        }
-    }
+const storage: Storage = {
+    user: undefined,
+    groupCourse: undefined
 }
 
 const setting: Setting = {
     backgroundImageUrl: undefined
 }
 
-async function login(): Promise<Root> {
-    if (!localStorage.user.isValid()) throw "username or/and password is invalid";
+async function login(body: { username: string, password: string }): Promise<Root> {
     let req = new Request("https://myapi.ku.th/auth/login");
     req.headers = {
         "Accept": "*/*",
@@ -38,7 +25,7 @@ async function login(): Promise<Root> {
         "Origin": "https://my.ku.th",
         "Referer": "https://my.ku.th"
     }
-    req.body = localStorage.user;
+    req.body = body;
     return await req.loadJSON();
 }
 
@@ -251,9 +238,14 @@ const menus = {
 }
 
 async function downloadSubjectData() {
+    console.log("Waiting for input...");
     let input = await inputUsernamePassword();
     if (input == null) throw "Invalid input";
-    let r = await login();
+    console.log("Logging to https://myapi.ku.th...");
+    let r = await login({ username: input.username, password: input.password });
+    console.log(r.code == "success" ? "Login successful" : "Login failed");
+    if (r.code != "success") throw r.code;
+    console.log("Request schedule from https://myapi.ku.th...");
     let schedule = await getSchedule(
         r.accesstoken,
         r.user.student.studentStatusCode,
@@ -262,14 +254,24 @@ async function downloadSubjectData() {
         r.user.userType,
         r.user.student.facultyCode
     );
-    if (schedule == null) throw "Invalid schedule";
-    return await loadData(
+    if (schedule.code != "success") throw "Failed to get schedule data code " + schedule.code;
+    console.log("Downloading Subject Data...");
+    let res = await loadData(
         r.accesstoken,
         schedule.results[0].academicYr.toString(),
         schedule.results[0].semester.toString(),
         r.user.student.stdId
     );
+    if (res == null || res.code != "success") throw "Failed to download subject data from server. : " + res.code;
+    return res;
+}
 
+async function alertError(title: string, message: string): Promise<void> {
+    let alertError = new Alert();
+    alertError.title = title;
+    alertError.message = message;
+    alertError.addAction("Exit");
+    await alertError.present();
 }
 
 if (config.runsInApp) {
@@ -279,7 +281,11 @@ if (config.runsInApp) {
             switch (res) {
                 case 0:
                     // download subject data
-                    (await downloadSubjectData())
+                    try {
+                        storage.groupCourse = await downloadSubjectData();
+                    } catch (error) {
+                        await alertError("Error", "Failed to download subject data\n" + error);
+                    }
                     break;
                 case 1:
                     // delete subject data
