@@ -15,17 +15,24 @@ const setting: Setting = {
     backgroundImageUrl: undefined
 }
 
+const saveFileName: string = "haokuwidget_data.json";
+const fm: FileManager = FileManager.local();
+const saveFilePath: string = fm.joinPath(fm.libraryDirectory(), saveFileName);
+
 async function login(body: { username: string, password: string }): Promise<Root> {
     let req = new Request("https://myapi.ku.th/auth/login");
+    req.method = "POST";
     req.headers = {
         "Accept": "*/*",
         "Accept-Encoding": "gzip, deflate, br",
         "App-key": "txCR5732xYYWDGdd49M3R19o1OVwdRFc",
         "Accept-Language": "en-US,en;q=0.9,th;0.8",
         "Origin": "https://my.ku.th",
-        "Referer": "https://my.ku.th"
+        "Referer": "https://my.ku.th",
+        "Content-Type": "application/json",
+        "Content-Length": JSON.stringify(body).length.toString()
     }
-    req.body = body;
+    req.body = JSON.stringify(body);
     return await req.loadJSON();
 }
 
@@ -79,11 +86,9 @@ async function inputUsernamePassword(): Promise<{ username: string, password: st
     a.title = "Login";
     a.message = "กรุณาใส่ username และ password";
     let res = await a.present()
-    if (res == 0) {
-        return {
-            username: a.textFieldValue(0),
-            password: a.textFieldValue(1)
-        }
+    if (res == 0) return {
+        username: a.textFieldValue(0),
+        password: a.textFieldValue(1)
     }
 }
 
@@ -214,8 +219,8 @@ const menus = {
      */
     actionMenus: async (): Promise<number> => {
         let a = new Alert();
-        a.addAction("Download Subject Data again");
-        a.addDestructiveAction("Delete Subject Data");
+        a.addAction(`Download Subject Data${isSaveFileExist() ? " (replace)" : ""}`);
+        if (isSaveFileExist()) a.addDestructiveAction("Delete Subject Data");
         a.addCancelAction("Cancel");
         a.title = "Choose";
         a.message = "Choose Actions";
@@ -237,7 +242,7 @@ const menus = {
     }
 }
 
-async function downloadSubjectData() {
+async function getAllDownloadData() {
     console.log("Waiting for input...");
     let input = await inputUsernamePassword();
     if (input == null) throw "Invalid input";
@@ -263,7 +268,24 @@ async function downloadSubjectData() {
         r.user.student.stdId
     );
     if (res == null || res.code != "success") throw "Failed to download subject data from server. : " + res.code;
-    return res;
+    console.log("Successfully downloaded subject data from the server.");
+    return { groupCourse: res, user: r };
+}
+
+function isSaveFileExist(): boolean {
+    return fm.fileExists(saveFilePath);
+}
+
+function saveData(data: Storage): void {
+    fm.writeString(saveFilePath, JSON.stringify(data));
+}
+
+function getSaveData(): Storage | null {
+    return isSaveFileExist() ? JSON.parse(fm.readString(saveFilePath)) : null;
+}
+
+function deleteSaveData(): void {
+    fm.remove(saveFilePath);
 }
 
 async function alertError(title: string, message: string): Promise<void> {
@@ -274,6 +296,36 @@ async function alertError(title: string, message: string): Promise<void> {
     await alertError.present();
 }
 
+async function alertMessage(title: string, message: string): Promise<void> {
+    let alert = new Alert();
+    alert.title = title;
+    alert.message = message;
+    alert.addAction("OK");
+    await alert.present();
+}
+
+const widgetBuilder = {
+    nodata(): ListWidget {
+        let widget = new ListWidget();
+        widget.addText("No data");
+        let t = widget.addText("Click here to login and download data.");
+        t.url = URLScheme.forRunningScript();
+        return widget;
+    },
+    debug(): ListWidget {
+        let widget = new ListWidget();
+        let text = widget.addText(JSON.stringify(storage));
+        text.font = Font.systemFont(1);
+        return widget;
+    },
+    extraLarge: {
+        build(): ListWidget {
+            let widget = new ListWidget();
+            return widget;
+        }
+    }
+}
+
 if (config.runsInApp) {
     switch (await menus.rootMenus()) {
         case 0:
@@ -282,13 +334,17 @@ if (config.runsInApp) {
                 case 0:
                     // download subject data
                     try {
-                        storage.groupCourse = await downloadSubjectData();
+                        let data = await getAllDownloadData();
+                        storage.groupCourse = data.groupCourse;
+                        storage.user = { root: data.user };
+                        saveData(storage);
                     } catch (error) {
                         await alertError("Error", "Failed to download subject data\n" + error);
                     }
                     break;
                 case 1:
                     // delete subject data
+                    deleteSaveData();
                     break;
                 default:
                     break;
@@ -299,4 +355,15 @@ if (config.runsInApp) {
             break;
         default:
     }
+} else if (config.runsInWidget) {
+    if (isSaveFileExist()) {
+        let saveData = getSaveData();
+        if (saveData) {
+            storage.groupCourse = saveData.groupCourse;
+            storage.user = saveData.user;
+        }
+        Script.setWidget(widgetBuilder.debug());
+    } else Script.setWidget(widgetBuilder.nodata());
 }
+alertMessage("Done", "Progress completed without errors.");
+Script.complete();

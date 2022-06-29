@@ -1,28 +1,27 @@
-const localStorage = {
-    user: {
-        username: undefined,
-        password: undefined,
-        isValid() {
-            return this.username != null && this.password != null;
-        }
-    }
+const storage = {
+    user: undefined,
+    groupCourse: undefined
 };
 const setting = {
     backgroundImageUrl: undefined
 };
-async function login() {
-    if (!localStorage.user.isValid())
-        throw "username or/and password is invalid";
+const saveFileName = "haokuwidget_data.json";
+const fm = FileManager.local();
+const saveFilePath = fm.joinPath(fm.libraryDirectory(), saveFileName);
+async function login(body) {
     let req = new Request("https://myapi.ku.th/auth/login");
+    req.method = "POST";
     req.headers = {
         "Accept": "*/*",
         "Accept-Encoding": "gzip, deflate, br",
         "App-key": "txCR5732xYYWDGdd49M3R19o1OVwdRFc",
         "Accept-Language": "en-US,en;q=0.9,th;0.8",
         "Origin": "https://my.ku.th",
-        "Referer": "https://my.ku.th"
+        "Referer": "https://my.ku.th",
+        "Content-Type": "application/json",
+        "Content-Length": JSON.stringify(body).length.toString()
     };
-    req.body = localStorage.user;
+    req.body = JSON.stringify(body);
     return await req.loadJSON();
 }
 async function getSchedule(token, stdStatusCode, campusCode, majorCode, userType, facultyCode) {
@@ -66,12 +65,11 @@ async function inputUsernamePassword() {
     a.title = "Login";
     a.message = "กรุณาใส่ username และ password";
     let res = await a.present();
-    if (res == 0) {
+    if (res == 0)
         return {
             username: a.textFieldValue(0),
             password: a.textFieldValue(1)
         };
-    }
 }
 class Subject {
     startTime = 0;
@@ -176,7 +174,7 @@ const menus = {
      */
     actionMenus: async () => {
         let a = new Alert();
-        a.addAction("Download Subject Data again");
+        a.addAction(`Download Subject Data${isSaveFileExist() ? " (replace)" : ""}`);
         a.addDestructiveAction("Delete Subject Data");
         a.addCancelAction("Cancel");
         a.title = "Choose";
@@ -196,16 +194,65 @@ const menus = {
         return await s.present();
     }
 };
-async function downloadSubjectData() {
+async function getAllDownloadData() {
+    console.log("Waiting for input...");
     let input = await inputUsernamePassword();
     if (input == null)
         throw "Invalid input";
-    let r = await login();
+    console.log("Logging to https://myapi.ku.th...");
+    let r = await login({ username: input.username, password: input.password });
+    console.log(r.code == "success" ? "Login successful" : "Login failed");
+    if (r.code != "success")
+        throw r.code;
+    console.log("Request schedule from https://myapi.ku.th...");
     let schedule = await getSchedule(r.accesstoken, r.user.student.studentStatusCode, r.user.student.campusCode, r.user.student.majorCode, r.user.userType, r.user.student.facultyCode);
-    if (schedule == null)
-        throw "Invalid schedule";
-    return await loadData(r.accesstoken, schedule.results[0].academicYr.toString(), schedule.results[0].semester.toString(), r.user.student.stdId);
+    if (schedule.code != "success")
+        throw "Failed to get schedule data code " + schedule.code;
+    console.log("Downloading Subject Data...");
+    let res = await loadData(r.accesstoken, schedule.results[0].academicYr.toString(), schedule.results[0].semester.toString(), r.user.student.stdId);
+    if (res == null || res.code != "success")
+        throw "Failed to download subject data from server. : " + res.code;
+    console.log("Successfully downloaded subject data from the server.");
+    return { groupCourse: res, user: r };
 }
+function isSaveFileExist() {
+    return fm.fileExists(saveFilePath);
+}
+function saveData(data) {
+    fm.writeString(saveFilePath, JSON.stringify(data));
+}
+function getSaveData() {
+    return isSaveFileExist() ? JSON.parse(fm.readString(saveFilePath)) : null;
+}
+async function alertError(title, message) {
+    let alertError = new Alert();
+    alertError.title = title;
+    alertError.message = message;
+    alertError.addAction("Exit");
+    await alertError.present();
+}
+async function alertMessage(title, message) {
+    let alert = new Alert();
+    alert.title = title;
+    alert.message = message;
+    alert.addAction("OK");
+    await alert.present();
+}
+const widgetBuilder = {
+    nodata() {
+        let widget = new ListWidget();
+        widget.addText("No data");
+        let t = widget.addText("Click here to login and download data.");
+        t.url = URLScheme.forRunningScript();
+        return widget;
+    },
+    debug() {
+        let widget = new ListWidget();
+        let text = widget.addText(JSON.stringify(storage));
+        text.font = Font.systemFont(1);
+        return widget;
+    }
+};
 if (config.runsInApp) {
     switch (await menus.rootMenus()) {
         case 0:
@@ -213,7 +260,15 @@ if (config.runsInApp) {
             switch (res) {
                 case 0:
                     // download subject data
-                    (await downloadSubjectData());
+                    try {
+                        let data = await getAllDownloadData();
+                        storage.groupCourse = data.groupCourse;
+                        storage.user = { root: data.user };
+                        saveData(storage);
+                    }
+                    catch (error) {
+                        await alertError("Error", "Failed to download subject data\n" + error);
+                    }
                     break;
                 case 1:
                     // delete subject data
@@ -228,4 +283,16 @@ if (config.runsInApp) {
         default:
     }
 }
-export {};
+else if (config.runsInWidget) {
+    if (isSaveFileExist()) {
+        let saveData = getSaveData();
+        if (saveData) {
+            storage.groupCourse = saveData.groupCourse;
+            storage.user = saveData.user;
+        }
+        Script.setWidget(widgetBuilder.debug());
+    }
+    else
+        Script.setWidget(widgetBuilder.nodata());
+}
+Script.complete();
