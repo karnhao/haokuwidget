@@ -24,6 +24,16 @@ async function login(body) {
     req.body = JSON.stringify(body);
     return await req.loadJSON();
 }
+async function getStdImage(token) {
+    let req = new Request("https://myapi.ku.th/std-profile/stdimages");
+    req.headers = {
+        "Accept": "*/*",
+        "Accept-Encoding": "gzip, deflate, br",
+        "App-key": "txCR5732xYYWDGdd49M3R19o1OVwdRFc",
+        "x-access-token": token
+    };
+    return req.loadImage();
+}
 async function getSchedule(token, stdStatusCode, campusCode, majorCode, userType, facultyCode) {
     let req = new Request(`https://myapi.ku.th/common/getschedule?stdStatusCode=${stdStatusCode}&campusCode=${campusCode}&majorCode=${majorCode}&userType=${userType}&facultyCode=${facultyCode}`);
     req.headers = {
@@ -175,7 +185,8 @@ const menus = {
     actionMenus: async () => {
         let a = new Alert();
         a.addAction(`Download Subject Data${isSaveFileExist() ? " (replace)" : ""}`);
-        a.addDestructiveAction("Delete Subject Data");
+        if (isSaveFileExist())
+            a.addDestructiveAction("Delete Subject Data");
         a.addCancelAction("Cancel");
         a.title = "Choose";
         a.message = "Choose Actions";
@@ -224,6 +235,9 @@ function saveData(data) {
 function getSaveData() {
     return isSaveFileExist() ? JSON.parse(fm.readString(saveFilePath)) : null;
 }
+function deleteSaveData() {
+    fm.remove(saveFilePath);
+}
 async function alertError(title, message) {
     let alertError = new Alert();
     alertError.title = title;
@@ -246,11 +260,19 @@ const widgetBuilder = {
         t.url = URLScheme.forRunningScript();
         return widget;
     },
-    debug() {
+    async debug() {
         let widget = new ListWidget();
         let text = widget.addText(JSON.stringify(storage));
         text.font = Font.systemFont(1);
+        if (storage.user != null && storage.user.root != null)
+            widget.backgroundImage = await getStdImage(storage.user.root.accesstoken);
         return widget;
+    },
+    extraLarge: {
+        build() {
+            let widget = new ListWidget();
+            return widget;
+        }
     }
 };
 if (config.runsInApp) {
@@ -272,6 +294,7 @@ if (config.runsInApp) {
                     break;
                 case 1:
                     // delete subject data
+                    deleteSaveData();
                     break;
                 default:
                     break;
@@ -295,4 +318,5 @@ else if (config.runsInWidget) {
     else
         Script.setWidget(widgetBuilder.nodata());
 }
+alertMessage("Done", "Progress completed without errors.");
 Script.complete();

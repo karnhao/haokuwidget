@@ -31,9 +31,20 @@ async function login(body: { username: string, password: string }): Promise<Root
         "Referer": "https://my.ku.th",
         "Content-Type": "application/json",
         "Content-Length": JSON.stringify(body).length.toString()
-    }
+    };
     req.body = JSON.stringify(body);
     return await req.loadJSON();
+}
+
+async function getStdImage(token: string): Promise<Image> {
+    let req = new Request("https://myapi.ku.th/std-profile/stdimages");
+    req.headers = {
+        "Accept": "*/*",
+        "Accept-Encoding": "gzip, deflate, br",
+        "App-key": "txCR5732xYYWDGdd49M3R19o1OVwdRFc",
+        "x-access-token": token
+    };
+    return req.loadImage();
 }
 
 async function getSchedule(
@@ -53,7 +64,7 @@ async function getSchedule(
         "Origin": "https://my.ku.th",
         "Referer": "https://my.ku.th",
         "x-access-token": token
-    }
+    };
     return await req.loadJSON();
 }
 
@@ -73,7 +84,7 @@ async function loadData(token: string, cademicYear: string, semester: string, st
         "Origin": "https://my.ku.th",
         "Referer": "https://my.ku.th",
         "x-access-token": token
-    }
+    };
     return await req.loadJSON();
 }
 
@@ -312,10 +323,11 @@ const widgetBuilder = {
         t.url = URLScheme.forRunningScript();
         return widget;
     },
-    debug(): ListWidget {
+    async debug(): Promise<ListWidget> {
         let widget = new ListWidget();
         let text = widget.addText(JSON.stringify(storage));
         text.font = Font.systemFont(1);
+        if (storage.user != null && storage.user.root != null) widget.backgroundImage = await getStdImage(storage.user.root.accesstoken);
         return widget;
     },
     extraLarge: {
