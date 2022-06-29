@@ -55,6 +55,7 @@ async function loadData(token, cademicYear, semester, stdId) {
         "Referer": "https://my.ku.th",
         "x-access-token": token
     };
+    return await req.loadJSON();
 }
 async function inputUsernamePassword() {
     let a = new Alert();
@@ -199,6 +200,11 @@ async function downloadSubjectData() {
     let input = await inputUsernamePassword();
     if (input == null)
         throw "Invalid input";
+    let r = await login();
+    let schedule = await getSchedule(r.accesstoken, r.user.student.studentStatusCode, r.user.student.campusCode, r.user.student.majorCode, r.user.userType, r.user.student.facultyCode);
+    if (schedule == null)
+        throw "Invalid schedule";
+    return await loadData(r.accesstoken, schedule.results[0].academicYr.toString(), schedule.results[0].semester.toString(), r.user.student.stdId);
 }
 if (config.runsInApp) {
     switch (await menus.rootMenus()) {
@@ -207,6 +213,7 @@ if (config.runsInApp) {
             switch (res) {
                 case 0:
                     // download subject data
+                    (await downloadSubjectData());
                     break;
                 case 1:
                     // delete subject data
