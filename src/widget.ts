@@ -2,8 +2,12 @@ import { Root } from './interfaces/login';
 import { GroupCourseRoot } from './interfaces/groupcourse';
 import { Storage } from './interfaces/storage'
 
-interface Setting {
-    backgroundImageUrl: string | undefined
+interface TemporaryData {
+    stdImage: Image | null;
+}
+
+const temp: TemporaryData = {
+    stdImage: null
 }
 
 const storage: Storage = {
@@ -11,13 +15,11 @@ const storage: Storage = {
     groupCourse: undefined
 }
 
-const setting: Setting = {
-    backgroundImageUrl: undefined
-}
-
 const saveFileName: string = "haokuwidget_data.json";
+const saveImageName: string = "haokuwidget_stdimage.jpg";
 const fm: FileManager = FileManager.local();
 const saveFilePath: string = fm.joinPath(fm.libraryDirectory(), saveFileName);
+const saveImagePath: string = fm.joinPath(fm.libraryDirectory(), saveImageName);
 
 async function login(body: { username: string, password: string }): Promise<Root> {
     let req = new Request("https://myapi.ku.th/auth/login");
@@ -230,8 +232,8 @@ const menus = {
      */
     actionMenus: async (): Promise<number> => {
         let a = new Alert();
-        a.addAction(`Download Subject Data${isSaveFileExist() ? " (replace)" : ""}`);
-        if (isSaveFileExist()) a.addDestructiveAction("Delete Subject Data");
+        a.addAction(`Download Data${isSaveFileExist() ? " (replace)" : ""}`);
+        if (isSaveFileExist()) a.addDestructiveAction("Delete Save Data");
         a.addCancelAction("Cancel");
         a.title = "Choose";
         a.message = "Choose Actions";
@@ -261,7 +263,14 @@ async function getAllDownloadData() {
     let r = await login({ username: input.username, password: input.password });
     console.log(r.code == "success" ? "Login successful" : "Login failed");
     if (r.code != "success") throw r.code;
-    console.log("Request schedule from https://myapi.ku.th...");
+    let stdImage: Image | null = null;
+    console.log("Downloading Student Image...")
+    try {
+        stdImage = await getStdImage(r.accesstoken);
+    } catch (error) {
+        console.log("Failed to download image: " + error);
+    }
+    console.log("Request schedule from https://myapi.ku.th ...");
     let schedule = await getSchedule(
         r.accesstoken,
         r.user.student.studentStatusCode,
@@ -280,7 +289,7 @@ async function getAllDownloadData() {
     );
     if (res == null || res.code != "success") throw "Failed to download subject data from server. : " + res.code;
     console.log("Successfully downloaded subject data from the server.");
-    return { groupCourse: res, user: r };
+    return { groupCourse: res, user: r, studentImage: stdImage };
 }
 
 function isSaveFileExist(): boolean {
@@ -298,6 +307,23 @@ function getSaveData(): Storage | null {
 function deleteSaveData(): void {
     fm.remove(saveFilePath);
 }
+
+function isSaveStdImageExist(): boolean {
+    return fm.fileExists(saveImagePath);
+}
+
+function saveStdImage(data: Image): void {
+    fm.writeImage(saveImageName, data);
+}
+
+function getSaveStdImage(): Image | null {
+    return isSaveStdImageExist() ? fm.readImage(saveImagePath) : null;
+}
+
+function deleteStdImage(): void {
+    fm.remove(saveImagePath);
+}
+
 
 async function alertError(title: string, message: string): Promise<void> {
     let alertError = new Alert();
@@ -327,13 +353,48 @@ const widgetBuilder = {
         let widget = new ListWidget();
         let text = widget.addText(JSON.stringify(storage));
         text.font = Font.systemFont(1);
-        if (storage.user != null && storage.user.root != null) widget.backgroundImage = await getStdImage(storage.user.root.accesstoken);
         return widget;
     },
     extraLarge: {
         build(): ListWidget {
             let widget = new ListWidget();
+            let stack = widget.addStack();
+            stack.size = new Size(710, 345);
+            this.headers.build(stack);
             return widget;
+        },
+        headers: {
+            build(stack: WidgetStack): void {
+                stack.layoutHorizontally();
+                stack.backgroundColor = new Color("#FFFFFF", 0.2);
+                stack.borderWidth = 1;
+                let h1 = stack.addStack();
+                let h2 = stack.addStack();
+
+                h1.size = new Size(stack.size.width * 2 / 5, stack.size.height);
+                h2.size = new Size(stack.size.width * 3 / 5, stack.size.height);
+
+                this.profile.build(h1);
+                this.infomation.build(h2);
+            },
+            profile: {
+                build(stack: WidgetStack): void {
+                    stack.layoutHorizontally();
+                },
+                picture(stack: WidgetStack): void {
+                    let stack2 = stack.addStack();
+                    stack2.size = new Size(stack.size.width - 10, stack.size.height - 10);
+                    if (temp.stdImage != null) stack2.backgroundImage = temp.stdImage;
+                },
+                info(stack: WidgetStack): void {
+
+                }
+            },
+            infomation: {
+                build(stack: WidgetStack): void {
+
+                }
+            }
         }
     }
 }
@@ -344,19 +405,21 @@ if (config.runsInApp) {
             let res = await menus.actionMenus();
             switch (res) {
                 case 0:
-                    // download subject data
+                    // download data
                     try {
                         let data = await getAllDownloadData();
                         storage.groupCourse = data.groupCourse;
                         storage.user = { root: data.user };
                         saveData(storage);
+                        if (data.studentImage != null) saveStdImage(data.studentImage);
                     } catch (error) {
                         await alertError("Error", "Failed to download subject data\n" + error);
                     }
                     break;
                 case 1:
-                    // delete subject data
+                    // delete data
                     deleteSaveData();
+                    deleteStdImage();
                     break;
                 default:
                     break;
@@ -370,11 +433,13 @@ if (config.runsInApp) {
 } else if (config.runsInWidget) {
     if (isSaveFileExist()) {
         let saveData = getSaveData();
+        let saveImageData = getSaveStdImage();
+        temp.stdImage = saveImageData;
         if (saveData) {
             storage.groupCourse = saveData.groupCourse;
             storage.user = saveData.user;
         }
-        Script.setWidget(widgetBuilder.debug());
+        Script.setWidget(widgetBuilder.extraLarge.build());
     } else Script.setWidget(widgetBuilder.nodata());
 }
 alertMessage("Done", "Progress completed without errors.");
