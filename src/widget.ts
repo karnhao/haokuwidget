@@ -70,13 +70,48 @@ async function getSchedule(
     return await req.loadJSON();
 }
 
+async function tokenAuthorizationLoadCourseData(token: string, cademicYear: string, semester: string, stdId: string): Promise<{ [key: string]: any }> {
+    let req = new Request(`https://myapi.ku.th/std-profile/getGroupCourse?cademicYear=${cademicYear}&semester=${semester}&stdId=${stdId}`);
+    req.method = "OPTIONS";
+    req.headers = {
+        "Accept": "*/*",
+        "Accept-Encoding": "gzip, deflate, br",
+        "Accept-Language": "en-US,en;q=0.9,th;0.8",
+        "Access-Control-Request-Headers": "app-key, x-access-token",
+        "Access-Control-Request-Method": "GET",
+        "Origin": "https://my.ku.th",
+        "Referer": "https://my.ku.th",
+        "x-access-token": token
+    };
+    await req.load();
+    return req.response;
+
+    // :authority: myapi.ku.th
+    // :method: OPTIONS
+    // :path: /std-profile/getGroupCourse?academicYear=2565&semester=1&stdId=224677
+    // :scheme: https
+    // accept: */*
+    // accept-encoding: gzip, deflate, br
+    // accept-language: th-TH,th;q=0.9
+    // access-control-request-headers: app-key,x-access-token
+    // access-control-request-method: GET
+    // origin: https://my.ku.th
+    // referer: https://my.ku.th/
+    // sec-fetch-dest: empty
+    // sec-fetch-mode: cors
+    // sec-fetch-site: same-site
+    // user-agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/102.0.0.0 Safari/537.36
+}
+
 /**
  * @param token x-access-token
  * @param cademicYear ปีการศึกษา
  * @param semester เทอม เช่น 1
  * @param stdId Student ID
  */
-async function loadData(token: string, cademicYear: string, semester: string, stdId: string): Promise<GroupCourseRoot> {
+async function loadCourseData(token: string, cademicYear: string, semester: string, stdId: string): Promise<GroupCourseRoot> {
+    let res = await tokenAuthorizationLoadCourseData(token, cademicYear, semester, stdId);
+    console.log(JSON.stringify(res, null, 2));
     let req = new Request(`https://myapi.ku.th/std-profile/getGroupCourse?cademicYear=${cademicYear}&semester=${semester}&stdId=${stdId}`);
     req.headers = {
         "Accept": "*/*",
@@ -264,12 +299,7 @@ async function getAllDownloadData() {
     console.log(r.code == "success" ? "Login successful" : "Login failed");
     if (r.code != "success") throw r.code;
     let stdImage: Image | null = null;
-    console.log("Downloading Student Image...")
-    try {
-        stdImage = await getStdImage(r.accesstoken);
-    } catch (error) {
-        console.log("Failed to download image: " + error);
-    }
+
     console.log("Request schedule from https://myapi.ku.th ...");
     let schedule = await getSchedule(
         r.accesstoken,
@@ -281,7 +311,7 @@ async function getAllDownloadData() {
     );
     if (schedule.code != "success") throw "Failed to get schedule data code " + schedule.code;
     console.log("Downloading Subject Data...");
-    let res = await loadData(
+    let res = await loadCourseData(
         r.accesstoken,
         schedule.results[0].academicYr.toString(),
         schedule.results[0].semester.toString(),
@@ -289,6 +319,13 @@ async function getAllDownloadData() {
     );
     if (res == null || res.code != "success") throw "Failed to download subject data from server. : " + res.code;
     console.log("Successfully downloaded subject data from the server.");
+    console.log("Downloading Student Image...")
+    try {
+        stdImage = await getStdImage(r.accesstoken);
+        console.log("Successfully downloaded student's image.");
+    } catch (error) {
+        console.log("(Failed to download image): " + error);
+    }
     return { groupCourse: res, user: r, studentImage: stdImage };
 }
 
@@ -313,7 +350,7 @@ function isSaveStdImageExist(): boolean {
 }
 
 function saveStdImage(data: Image): void {
-    fm.writeImage(saveImageName, data);
+    fm.writeImage(saveImagePath, data);
 }
 
 function getSaveStdImage(): Image | null {
@@ -334,6 +371,7 @@ async function alertError(title: string, message: string): Promise<void> {
 }
 
 async function alertMessage(title: string, message: string): Promise<void> {
+    if (config.runsInWidget) return;
     let alert = new Alert();
     alert.title = title;
     alert.message = message;
