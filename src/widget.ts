@@ -361,25 +361,52 @@ function deleteStdImage(): void {
     fm.remove(saveImagePath);
 }
 
-
-async function alertError(title: string, message: string): Promise<void> {
-    let alertError = new Alert();
-    alertError.title = title;
-    alertError.message = message;
-    alertError.addAction("Exit");
-    await alertError.present();
-}
-
-async function alertMessage(title: string, message: string): Promise<void> {
+async function alert(title: string, message: string, actions: { text: string, option: "normal" | "destructive" }[] = [{ text: "OK", option: "normal" }]): Promise<number | void> {
     if (config.runsInWidget) return;
     let alert = new Alert();
     alert.title = title;
     alert.message = message;
-    alert.addAction("OK");
+    for (let i of actions) {
+        if (i.option == "normal") alert.addAction(i.text);
+        else alert.addDestructiveAction(i.text);
+    }
     await alert.present();
 }
 
+async function alertError(title: string, message: string): Promise<void> {
+    await alert(title, message, [{ text: "Exit", option: "normal" }]);
+}
+
+async function alertMessage(title: string, message: string): Promise<void> {
+    await alert(title, message, [{ text: "OK", option: "normal" }]);
+}
+
 const widgetBuilder = {
+    addLine(stack: WidgetStack, options: "horizontally" | "vertically") {
+        let line = stack.addStack();
+        line.backgroundColor = Device.isUsingDarkAppearance() ? new Color("#FFFFFF", 0.2) : new Color("#000000", 0.8);
+
+        this.setStackSize(stack, line, 100, 100, options == "vertically" ? { width: 1 } : { height: 1 });
+    },
+    sizeCal(origin: Size, percentageWidth: number, percentageHeight: number): Size {
+        return new Size(origin.width * percentageWidth / 100, origin.height * percentageHeight / 100);
+    },
+    setStackSize(
+        superStack: WidgetStack,
+        stack: WidgetStack,
+        percentageWidth: number,
+        percentageHeight: number,
+        options: {
+            width?: number | null;
+            height?: number | null;
+        } = { width: null, height: null }
+    ): void {
+        stack.size = this.sizeCal(
+            superStack.size,
+            options?.width ? options.width * 100 / stack.size.width : percentageWidth,
+            options?.height ? options.height * 100 / stack.size.height : percentageHeight
+        );
+    },
     nodata(): ListWidget {
         let widget = new ListWidget();
         widget.addText("No data");
@@ -397,8 +424,19 @@ const widgetBuilder = {
         build(): ListWidget {
             let widget = new ListWidget();
             let stack = widget.addStack();
-            stack.size = new Size(710, 345);
-            this.headers.build(stack);
+            stack.size = new Size(710, 340);
+
+            let header = stack.addStack();
+            widgetBuilder.addLine(stack, "vertically");
+            let body = stack.addStack();
+            let footer = stack.addStack();
+
+            // 25% , 55% , 20% all 100%
+            widgetBuilder.setStackSize(stack, header, 100, 25);
+            widgetBuilder.setStackSize(stack, body, 100, 55);
+            widgetBuilder.setStackSize(stack, footer, 100, 20);
+
+            this.headers.build(header);
             return widget;
         },
         headers: {
@@ -409,8 +447,8 @@ const widgetBuilder = {
                 let h1 = stack.addStack();
                 let h2 = stack.addStack();
 
-                h1.size = new Size(stack.size.width * 2 / 5, stack.size.height);
-                h2.size = new Size(stack.size.width * 3 / 5, stack.size.height);
+                widgetBuilder.setStackSize(stack, h1, 40, 100);
+                widgetBuilder.setStackSize(stack, h2, 60, 100);
 
                 this.profile.build(h1);
                 this.infomation.build(h2);
@@ -418,10 +456,25 @@ const widgetBuilder = {
             profile: {
                 build(stack: WidgetStack): void {
                     stack.layoutHorizontally();
+                    let picture = stack.addStack();
+                    widgetBuilder.addLine(stack, "vertically");
+                    let info = stack.addStack();
+
+                    widgetBuilder.setStackSize(stack, picture, 35, 100);
+                    widgetBuilder.setStackSize(stack, info, 65, 100);
+
+                    this.picture(picture);
+                    this.info(info);
+
                 },
                 picture(stack: WidgetStack): void {
+                    stack.layoutVertically();
+
+                    stack.addSpacer();
                     let stack2 = stack.addStack();
-                    stack2.size = new Size(stack.size.width - 10, stack.size.height - 10);
+                    stack.addSpacer();
+
+                    widgetBuilder.setStackSize(stack, stack2, 50, 50);
                     if (temp.stdImage != null) stack2.backgroundImage = temp.stdImage;
                 },
                 info(stack: WidgetStack): void {
