@@ -315,7 +315,7 @@ async function getAllDownloadData() {
         schedule.results[0].semester.toString(),
         r.user.student.stdId
     );
-    if (res == null || res.code != "success") throw "Failed to download subject data from server. : " + res.code;
+    if (res == null || res.code != "success" || res.results) throw "Failed to download subject data from server. : " + res.code;
     console.log(JSON.stringify(res, null, 2));
     console.log("Successfully downloaded subject data from the server.");
     console.log("Downloading Student Image...")
