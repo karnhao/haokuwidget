@@ -243,6 +243,7 @@ async function getAllDownloadData() {
     let input = await inputUsernamePassword();
     if (input == null)
         throw "Invalid input";
+    console.log(JSON.stringify(input, null, 2));
     console.log("Logging to https://myapi.ku.th...");
     let r = await login({ username: input.username, password: input.password });
     console.log(r.code == "success" ? "Login successful" : "Login failed");
@@ -255,7 +256,7 @@ async function getAllDownloadData() {
         throw "Failed to get schedule data code " + schedule.code;
     console.log("Downloading Subject Data...");
     let res = await loadCourseData(r.accesstoken, schedule.results[0].academicYr.toString(), schedule.results[0].semester.toString(), r.user.student.stdId);
-    if (res == null || res.code != "success")
+    if (res == null || res.code != "success" || res.results)
         throw "Failed to download subject data from server. : " + res.code;
     console.log(JSON.stringify(res, null, 2));
     console.log("Successfully downloaded subject data from the server.");
@@ -503,3 +504,4 @@ else if (config.runsInWidget) {
 }
 alertMessage("Done", "Progress completed without errors.");
 Script.complete();
+export {};
