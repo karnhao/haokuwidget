@@ -49,37 +49,37 @@ async function getSchedule(token, stdStatusCode, campusCode, majorCode, userType
     };
     return await req.loadJSON();
 }
-async function tokenAuthorizationLoadCourseData(token, cademicYear, semester, stdId) {
-    let req = new Request(`https://myapi.ku.th/std-profile/getGroupCourse?cademicYear=${cademicYear}&semester=${semester}&stdId=${stdId}`);
-    req.method = "OPTIONS";
-    req.headers = {
-        "Accept": "*/*",
-        "Accept-Encoding": "gzip, deflate, br",
-        "Accept-Language": "en-US,en;q=0.9,th;0.8",
-        "Access-Control-Request-Headers": "app-key, x-access-token",
-        "Access-Control-Request-Method": "GET",
-        "Origin": "https://my.ku.th",
-        "Referer": "https://my.ku.th",
-        "x-access-token": token
-    };
-    await req.load();
-    return req.response;
-    // :authority: myapi.ku.th
-    // :method: OPTIONS
-    // :path: /std-profile/getGroupCourse?academicYear=2565&semester=1&stdId=224677
-    // :scheme: https
-    // accept: */*
-    // accept-encoding: gzip, deflate, br
-    // accept-language: th-TH,th;q=0.9
-    // access-control-request-headers: app-key,x-access-token
-    // access-control-request-method: GET
-    // origin: https://my.ku.th
-    // referer: https://my.ku.th/
-    // sec-fetch-dest: empty
-    // sec-fetch-mode: cors
-    // sec-fetch-site: same-site
-    // user-agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/102.0.0.0 Safari/537.36
-}
+// async function tokenAuthorizationLoadCourseData(token: string, cademicYear: string, semester: string, stdId: string): Promise<{ [key: string]: any }> {
+//     let req = new Request(`https://myapi.ku.th/std-profile/getGroupCourse?cademicYear=${cademicYear}&semester=${semester}&stdId=${stdId}`);
+//     req.method = "OPTIONS";
+//     req.headers = {
+//         "Accept": "*/*",
+//         "Accept-Encoding": "gzip, deflate, br",
+//         "Accept-Language": "en-US,en;q=0.9,th;0.8",
+//         "Access-Control-Request-Headers": "app-key, x-access-token",
+//         "Access-Control-Request-Method": "GET",
+//         "Origin": "https://my.ku.th",
+//         "Referer": "https://my.ku.th",
+//         "x-access-token": token
+//     };
+//     await req.load();
+//     return req.response;
+//     // :authority: myapi.ku.th
+//     // :method: OPTIONS
+//     // :path: /std-profile/getGroupCourse?academicYear=2565&semester=1&stdId=224677
+//     // :scheme: https
+//     // accept: */*
+//     // accept-encoding: gzip, deflate, br
+//     // accept-language: th-TH,th;q=0.9
+//     // access-control-request-headers: app-key,x-access-token
+//     // access-control-request-method: GET
+//     // origin: https://my.ku.th
+//     // referer: https://my.ku.th/
+//     // sec-fetch-dest: empty
+//     // sec-fetch-mode: cors
+//     // sec-fetch-site: same-site
+//     // user-agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/102.0.0.0 Safari/537.36
+// }
 /**
  * @param token x-access-token
  * @param cademicYear ปีการศึกษา
@@ -87,8 +87,6 @@ async function tokenAuthorizationLoadCourseData(token, cademicYear, semester, st
  * @param stdId Student ID
  */
 async function loadCourseData(token, cademicYear, semester, stdId) {
-    let res = await tokenAuthorizationLoadCourseData(token, cademicYear, semester, stdId);
-    console.log(JSON.stringify(res, null, 2));
     let req = new Request(`https://myapi.ku.th/std-profile/getGroupCourse?cademicYear=${cademicYear}&semester=${semester}&stdId=${stdId}`);
     req.headers = {
         "Accept": "*/*",
@@ -259,6 +257,7 @@ async function getAllDownloadData() {
     let res = await loadCourseData(r.accesstoken, schedule.results[0].academicYr.toString(), schedule.results[0].semester.toString(), r.user.student.stdId);
     if (res == null || res.code != "success")
         throw "Failed to download subject data from server. : " + res.code;
+    console.log(JSON.stringify(res, null, 2));
     console.log("Successfully downloaded subject data from the server.");
     console.log("Downloading Student Image...");
     try {
@@ -315,10 +314,14 @@ async function alertMessage(title, message) {
     await alert(title, message, [{ text: "OK", option: "normal" }]);
 }
 const widgetBuilder = {
-    addLine(stack, options) {
+    genRanHex(size) { return [...Array(size)].map(() => Math.floor(Math.random() * 16).toString(16)).join(''); },
+    genRanColor(alpha) { return new Color(`#${this.genRanHex(6)}`, alpha); },
+    addLine(stack, type, options = {}) {
+        let color = options?.color ?? Device.isUsingDarkAppearance() ? new Color("#FFFFFF", 0.2) : new Color("#000000", 0.8);
+        let lengthPercentage = options?.lengthPercentage ?? 100;
         let line = stack.addStack();
-        line.backgroundColor = Device.isUsingDarkAppearance() ? new Color("#FFFFFF", 0.2) : new Color("#000000", 0.8);
-        this.setStackSize(stack, line, 100, 100, options == "vertically" ? { width: 1 } : { height: 1 });
+        line.backgroundColor = color;
+        this.setStackSize(stack, line, 100, 100, type == "vertically" ? { width: 1 * lengthPercentage / 100 } : { height: 1 * lengthPercentage / 100 });
     },
     sizeCal(origin, percentageWidth, percentageHeight) {
         return new Size(origin.width * percentageWidth / 100, origin.height * percentageHeight / 100);
@@ -326,7 +329,12 @@ const widgetBuilder = {
     setStackSize(superStack, stack, percentageWidth, percentageHeight, options = { width: null, height: null }) {
         stack.size = this.sizeCal(superStack.size, options?.width ? options.width * 100 / stack.size.width : percentageWidth, options?.height ? options.height * 100 / stack.size.height : percentageHeight);
     },
-    nodata() {
+    notSupported() {
+        let widget = new ListWidget();
+        widget.addText("Script not support this widget size yet : " + config.widgetFamily);
+        return widget;
+    },
+    noData() {
         let widget = new ListWidget();
         widget.addText("No data");
         let t = widget.addText("Click here to login and download data.");
@@ -342,16 +350,22 @@ const widgetBuilder = {
     extraLarge: {
         build() {
             let widget = new ListWidget();
+            let linearGradient = new LinearGradient();
+            linearGradient.colors = [new Color("#0000AA"), new Color("#000055")];
+            linearGradient.locations = [0, 1];
+            widget.backgroundGradient = linearGradient;
             let stack = widget.addStack();
-            stack.size = new Size(710, 340);
+            stack.layoutVertically();
+            stack.size = new Size(700, 330);
             let header = stack.addStack();
-            widgetBuilder.addLine(stack, "vertically");
+            widgetBuilder.addLine(stack, "horizontally");
             let body = stack.addStack();
             let footer = stack.addStack();
+            footer.backgroundColor = new Color("#ABCDEF", 1);
             // 25% , 55% , 20% all 100%
-            widgetBuilder.setStackSize(stack, header, 100, 25);
-            widgetBuilder.setStackSize(stack, body, 100, 55);
-            widgetBuilder.setStackSize(stack, footer, 100, 20);
+            widgetBuilder.setStackSize(stack, header, 100, 30);
+            widgetBuilder.setStackSize(stack, body, 100, 68);
+            widgetBuilder.setStackSize(stack, footer, 100, 2);
             this.headers.build(header);
             return widget;
         },
@@ -359,8 +373,9 @@ const widgetBuilder = {
             build(stack) {
                 stack.layoutHorizontally();
                 stack.backgroundColor = new Color("#FFFFFF", 0.2);
-                stack.borderWidth = 1;
+                stack.cornerRadius = 2;
                 let h1 = stack.addStack();
+                widgetBuilder.addLine(stack, "vertically");
                 let h2 = stack.addStack();
                 widgetBuilder.setStackSize(stack, h1, 40, 100);
                 widgetBuilder.setStackSize(stack, h2, 60, 100);
@@ -379,19 +394,57 @@ const widgetBuilder = {
                     this.info(info);
                 },
                 picture(stack) {
-                    stack.layoutVertically();
+                    stack.layoutHorizontally();
                     stack.addSpacer();
                     let stack2 = stack.addStack();
                     stack.addSpacer();
-                    widgetBuilder.setStackSize(stack, stack2, 50, 50);
+                    widgetBuilder.setStackSize(stack, stack2, 85, 100);
                     if (temp.stdImage != null)
                         stack2.backgroundImage = temp.stdImage;
                 },
                 info(stack) {
+                    stack.layoutVertically();
+                    let name = stack.addStack();
+                    widgetBuilder.addLine(stack, "horizontally");
+                    let faculty = stack.addStack();
+                    let department = stack.addStack();
+                    widgetBuilder.setStackSize(stack, name, 100, 60);
+                    widgetBuilder.setStackSize(stack, faculty, 100, 20);
+                    widgetBuilder.setStackSize(stack, department, 100, 20);
+                    name.backgroundColor = widgetBuilder.genRanColor(0.1);
+                    faculty.backgroundColor = widgetBuilder.genRanColor(0.1);
+                    department.backgroundColor = widgetBuilder.genRanColor(0.1);
                 }
             },
             infomation: {
                 build(stack) {
+                    stack.layoutVertically();
+                    let top = stack.addStack();
+                    widgetBuilder.addLine(stack, "horizontally");
+                    let body = stack.addStack();
+                    widgetBuilder.addLine(stack, "horizontally");
+                    let bottom = stack.addStack();
+                    widgetBuilder.setStackSize(stack, top, 100, 20);
+                    widgetBuilder.setStackSize(stack, body, 100, 60);
+                    widgetBuilder.setStackSize(stack, bottom, 100, 20);
+                    top.backgroundColor = widgetBuilder.genRanColor(0.1);
+                    body.backgroundColor = widgetBuilder.genRanColor(0.1);
+                    bottom.backgroundColor = widgetBuilder.genRanColor(0.1);
+                },
+                top: {
+                    build(stack) {
+                        stack.addText("Top");
+                    }
+                },
+                body: {
+                    build(stack) {
+                        stack.addText("Body");
+                    }
+                },
+                foot: {
+                    build(stack) {
+                        stack.addText("Foot");
+                    }
                 }
             }
         }
@@ -433,17 +486,22 @@ if (config.runsInApp) {
 }
 else if (config.runsInWidget) {
     if (isSaveFileExist()) {
-        let saveData = getSaveData();
-        let saveImageData = getSaveStdImage();
-        temp.stdImage = saveImageData;
-        if (saveData) {
-            storage.groupCourse = saveData.groupCourse;
-            storage.user = saveData.user;
+        if (config.widgetFamily == "extraLarge") {
+            let saveData = getSaveData();
+            let saveImageData = getSaveStdImage();
+            temp.stdImage = saveImageData;
+            if (saveData) {
+                storage.groupCourse = saveData.groupCourse;
+                storage.user = saveData.user;
+            }
+            Script.setWidget(widgetBuilder.extraLarge.build());
         }
-        Script.setWidget(widgetBuilder.extraLarge.build());
+        else
+            Script.setWidget(widgetBuilder.notSupported());
     }
     else
-        Script.setWidget(widgetBuilder.nodata());
+        Script.setWidget(widgetBuilder.noData());
 }
 alertMessage("Done", "Progress completed without errors.");
 Script.complete();
+export {};
