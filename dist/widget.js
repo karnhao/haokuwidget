@@ -208,7 +208,7 @@ const menus = {
         root.addAction("Settings");
         root.addCancelAction("Cancel");
         root.title = "Choose";
-        root.message = "Would you could you on a car? Eat them eat them here there are!";
+        root.message = "Choose Action that you want to do!";
         return await root.present();
     },
     /**
@@ -243,7 +243,6 @@ async function getAllDownloadData() {
     let input = await inputUsernamePassword();
     if (input == null)
         throw "Invalid input";
-    console.log(JSON.stringify(input, null, 2));
     console.log("Logging to https://myapi.ku.th...");
     let r = await login({ username: input.username, password: input.password });
     console.log(r.code == "success" ? "Login successful" : "Login failed");
