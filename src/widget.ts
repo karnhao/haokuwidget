@@ -131,7 +131,7 @@ async function inputUsernamePassword(): Promise<{ username: string, password: st
     a.addCancelAction("Cancel");
     a.title = "Login";
     a.message = "กรุณาใส่ username และ password";
-    let res = await a.present()
+    let res = await a.present();
     if (res == 0) return {
         username: a.textFieldValue(0),
         password: a.textFieldValue(1)
@@ -255,7 +255,7 @@ const menus = {
         root.addAction("Settings");
         root.addCancelAction("Cancel");
         root.title = "Choose";
-        root.message = "Would you could you on a car? Eat them eat them here there are!";
+        root.message = "Choose Action that you want to do!";
         return await root.present();
     },
 
