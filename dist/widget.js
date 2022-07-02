@@ -317,7 +317,7 @@ const widgetBuilder = {
     genRanHex(size) { return [...Array(size)].map(() => Math.floor(Math.random() * 16).toString(16)).join(''); },
     genRanColor(alpha) { return new Color(`#${this.genRanHex(6)}`, alpha); },
     addLine(stack, type, options = {}) {
-        let color = options?.color ?? Device.isUsingDarkAppearance() ? new Color("#FFFFFF", 0.2) : new Color("#000000", 0.8);
+        let color = options?.color ?? Device.isUsingDarkAppearance() ? new Color("#FFFFFF", 1) : new Color("#000000", 1);
         let lengthPercentage = options?.lengthPercentage ?? 100;
         let line = stack.addStack();
         line.backgroundColor = color;
@@ -326,8 +326,8 @@ const widgetBuilder = {
     sizeCal(origin, percentageWidth, percentageHeight) {
         return new Size(origin.width * percentageWidth / 100, origin.height * percentageHeight / 100);
     },
-    setStackSize(superStack, stack, percentageWidth, percentageHeight, options = { width: null, height: null }) {
-        stack.size = this.sizeCal(superStack.size, options?.width ? options.width * 100 / stack.size.width : percentageWidth, options?.height ? options.height * 100 / stack.size.height : percentageHeight);
+    setStackSize(superStack, stack, percentageWidth, percentageHeight, options = {}) {
+        stack.size = this.sizeCal(superStack.size, options.width ? options.width * 100 / superStack.size.width : percentageWidth, options.height ? options.height * 100 / superStack.size.height : percentageHeight);
     },
     notSupported() {
         let widget = new ListWidget();
@@ -351,10 +351,11 @@ const widgetBuilder = {
         build() {
             let widget = new ListWidget();
             let linearGradient = new LinearGradient();
-            linearGradient.colors = [new Color("#0000AA"), new Color("#000055")];
+            linearGradient.colors = [new Color("#11FF55"), new Color("#1111AA")];
             linearGradient.locations = [0, 1];
             widget.backgroundGradient = linearGradient;
             let stack = widget.addStack();
+            stack.cornerRadius = 12;
             stack.layoutVertically();
             stack.size = new Size(700, 330);
             let header = stack.addStack();
@@ -362,7 +363,6 @@ const widgetBuilder = {
             let body = stack.addStack();
             let footer = stack.addStack();
             footer.backgroundColor = new Color("#ABCDEF", 1);
-            // 25% , 55% , 20% all 100%
             widgetBuilder.setStackSize(stack, header, 100, 30);
             widgetBuilder.setStackSize(stack, body, 100, 68);
             widgetBuilder.setStackSize(stack, footer, 100, 2);
@@ -373,12 +373,11 @@ const widgetBuilder = {
             build(stack) {
                 stack.layoutHorizontally();
                 stack.backgroundColor = new Color("#FFFFFF", 0.2);
-                stack.cornerRadius = 2;
                 let h1 = stack.addStack();
                 widgetBuilder.addLine(stack, "vertically");
                 let h2 = stack.addStack();
-                widgetBuilder.setStackSize(stack, h1, 40, 100);
-                widgetBuilder.setStackSize(stack, h2, 60, 100);
+                widgetBuilder.setStackSize(stack, h1, 50, 100);
+                widgetBuilder.setStackSize(stack, h2, 50, 100);
                 this.profile.build(h1);
                 this.infomation.build(h2);
             },
@@ -408,12 +407,12 @@ const widgetBuilder = {
                     widgetBuilder.addLine(stack, "horizontally");
                     let faculty = stack.addStack();
                     let department = stack.addStack();
-                    widgetBuilder.setStackSize(stack, name, 100, 60);
-                    widgetBuilder.setStackSize(stack, faculty, 100, 20);
-                    widgetBuilder.setStackSize(stack, department, 100, 20);
-                    name.backgroundColor = widgetBuilder.genRanColor(0.1);
-                    faculty.backgroundColor = widgetBuilder.genRanColor(0.1);
-                    department.backgroundColor = widgetBuilder.genRanColor(0.1);
+                    widgetBuilder.setStackSize(stack, name, 100, 40);
+                    widgetBuilder.setStackSize(stack, faculty, 100, 30);
+                    widgetBuilder.setStackSize(stack, department, 100, 30);
+                    name.backgroundColor = widgetBuilder.genRanColor(1);
+                    faculty.backgroundColor = widgetBuilder.genRanColor(1);
+                    department.backgroundColor = widgetBuilder.genRanColor(1);
                 }
             },
             infomation: {
@@ -423,13 +422,13 @@ const widgetBuilder = {
                     widgetBuilder.addLine(stack, "horizontally");
                     let body = stack.addStack();
                     widgetBuilder.addLine(stack, "horizontally");
-                    let bottom = stack.addStack();
+                    let foot = stack.addStack();
                     widgetBuilder.setStackSize(stack, top, 100, 20);
                     widgetBuilder.setStackSize(stack, body, 100, 60);
-                    widgetBuilder.setStackSize(stack, bottom, 100, 20);
-                    top.backgroundColor = widgetBuilder.genRanColor(0.1);
-                    body.backgroundColor = widgetBuilder.genRanColor(0.1);
-                    bottom.backgroundColor = widgetBuilder.genRanColor(0.1);
+                    widgetBuilder.setStackSize(stack, foot, 100, 20);
+                    top.backgroundColor = widgetBuilder.genRanColor(1);
+                    body.backgroundColor = widgetBuilder.genRanColor(1);
+                    foot.backgroundColor = widgetBuilder.genRanColor(1);
                 },
                 top: {
                     build(stack) {
@@ -504,4 +503,3 @@ else if (config.runsInWidget) {
 }
 alertMessage("Done", "Progress completed without errors.");
 Script.complete();
-export {};
