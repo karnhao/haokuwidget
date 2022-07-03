@@ -503,4 +503,3 @@ else if (config.runsInWidget) {
 }
 alertMessage("Done", "Progress completed without errors.");
 Script.complete();
-export {};
