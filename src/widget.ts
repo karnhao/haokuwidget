@@ -1,6 +1,7 @@
 import { Root } from './interfaces/login';
 import { GroupCourseRoot } from './interfaces/groupcourse';
 import { Storage } from './interfaces/storage'
+import { Settings } from './interfaces/settings';
 
 interface TemporaryData {
     stdImage: Image | null;
@@ -10,16 +11,15 @@ const temp: TemporaryData = {
     stdImage: null
 }
 
-const storage: Storage = {
-    user: undefined,
-    groupCourse: undefined
-}
+const storage: Storage = {}
 
 const saveFileName: string = "haokuwidget_data.json";
 const saveImageName: string = "haokuwidget_stdimage.jpg";
+const saveSettingName: string = "haokuwidget_setting.json"
 const fm: FileManager = FileManager.local();
 const saveFilePath: string = fm.joinPath(fm.libraryDirectory(), saveFileName);
 const saveImagePath: string = fm.joinPath(fm.libraryDirectory(), saveImageName);
+const saveSettingPath: string = fm.joinPath(fm.libraryDirectory(), saveSettingName);
 
 async function login(body: { username: string, password: string }): Promise<Root> {
     let req = new Request("https://myapi.ku.th/auth/login");
@@ -265,8 +265,8 @@ const menus = {
      */
     actionMenus: async (): Promise<number> => {
         let a = new Alert();
-        a.addAction(`Download Data${isSaveFileExist() ? " (replace)" : ""}`);
-        if (isSaveFileExist()) a.addDestructiveAction("Delete Save Data");
+        a.addAction(`Download Data${fileManager.isSaveFileExist() ? " (replace)" : ""}`);
+        if (fileManager.isSaveFileExist()) a.addDestructiveAction("Delete Save Data");
         a.addCancelAction("Cancel");
         a.title = "Choose";
         a.message = "Choose Actions";
@@ -328,36 +328,43 @@ async function getAllDownloadData() {
     return { groupCourse: res, user: r, studentImage: stdImage };
 }
 
-function isSaveFileExist(): boolean {
-    return fm.fileExists(saveFilePath);
-}
-
-function saveData(data: Storage): void {
-    fm.writeString(saveFilePath, JSON.stringify(data));
-}
-
-function getSaveData(): Storage | null {
-    return isSaveFileExist() ? JSON.parse(fm.readString(saveFilePath)) : null;
-}
-
-function deleteSaveData(): void {
-    fm.remove(saveFilePath);
-}
-
-function isSaveStdImageExist(): boolean {
-    return fm.fileExists(saveImagePath);
-}
-
-function saveStdImage(data: Image): void {
-    fm.writeImage(saveImagePath, data);
-}
-
-function getSaveStdImage(): Image | null {
-    return isSaveStdImageExist() ? fm.readImage(saveImagePath) : null;
-}
-
-function deleteStdImage(): void {
-    fm.remove(saveImagePath);
+const fileManager = {
+    isSaveFileExist(): boolean {
+        return fm.fileExists(saveFilePath);
+    },
+    saveData(data: Storage): void {
+        fm.writeString(saveFilePath, JSON.stringify(data));
+    },
+    getSaveData(): Storage | null {
+        return this.isSaveFileExist() ? JSON.parse(fm.readString(saveFilePath)) : null;
+    },
+    deleteSaveData(): void {
+        fm.remove(saveFilePath);
+    },
+    isSaveStdImageExist(): boolean {
+        return fm.fileExists(saveImagePath);
+    },
+    saveStdImage(data: Image): void {
+        fm.writeImage(saveImagePath, data);
+    },
+    getSaveStdImage(): Image | null {
+        return this.isSaveStdImageExist() ? fm.readImage(saveImagePath) : null;
+    },
+    deleteStdImage(): void {
+        fm.remove(saveImagePath);
+    },
+    isSaveSettingExist(): boolean {
+        return fm.fileExists(saveSettingPath);
+    },
+    saveSetting(data: Settings): void {
+        fm.writeString(saveSettingPath, JSON.stringify(data));
+    },
+    getSaveSetting(): Settings | null {
+        return this.isSaveSettingExist() ? JSON.parse(fm.readString(saveSettingPath)) : null;
+    },
+    deleteSettingFile(): void {
+        fm.remove(saveSettingPath);
+    }
 }
 
 async function alert(title: string, message: string, actions: { text: string, option: "normal" | "destructive" }[] = [{ text: "OK", option: "normal" }]): Promise<number | void> {
@@ -553,6 +560,13 @@ const widgetBuilder = {
     }
 }
 
+if (!fileManager.isSaveSettingExist()) {
+    fileManager.saveSetting({
+        showStdImage: true,
+        showStdInfo: true
+    });
+}
+
 if (config.runsInApp) {
     switch (await menus.rootMenus()) {
         case 0:
@@ -564,16 +578,16 @@ if (config.runsInApp) {
                         let data = await getAllDownloadData();
                         storage.groupCourse = data.groupCourse;
                         storage.user = { root: data.user };
-                        saveData(storage);
-                        if (data.studentImage != null) saveStdImage(data.studentImage);
+                        fileManager.saveData(storage);
+                        if (data.studentImage != null) fileManager.saveStdImage(data.studentImage);
                     } catch (error) {
                         await alertError("Error", "Failed to download subject data\n" + error);
                     }
                     break;
                 case 1:
                     // delete data
-                    deleteSaveData();
-                    deleteStdImage();
+                    fileManager.deleteSaveData();
+                    fileManager.deleteStdImage();
                     break;
                 default:
                     break;
@@ -585,14 +599,15 @@ if (config.runsInApp) {
         default:
     }
 } else if (config.runsInWidget) {
-    if (isSaveFileExist()) {
+    if (fileManager.isSaveFileExist()) {
         if (config.widgetFamily == "extraLarge") {
-            let saveData = getSaveData();
-            let saveImageData = getSaveStdImage();
+            let saveData = fileManager.getSaveData();
+            let saveImageData = fileManager.getSaveStdImage();
             temp.stdImage = saveImageData;
             if (saveData) {
                 storage.groupCourse = saveData.groupCourse;
                 storage.user = saveData.user;
+                storage.setting = saveData.setting;
             }
             Script.setWidget(widgetBuilder.extraLarge.build());
         } else Script.setWidget(widgetBuilder.notSupported());
