@@ -208,7 +208,7 @@ const menus = {
         root.addAction("Settings");
         root.addCancelAction("Cancel");
         root.title = "Choose";
-        root.message = "Would you could you on a car? Eat them eat them here there are!";
+        root.message = "Choose Action that you want to do!";
         return await root.present();
     },
     /**
@@ -255,7 +255,7 @@ async function getAllDownloadData() {
         throw "Failed to get schedule data code " + schedule.code;
     console.log("Downloading Subject Data...");
     let res = await loadCourseData(r.accesstoken, schedule.results[0].academicYr.toString(), schedule.results[0].semester.toString(), r.user.student.stdId);
-    if (res == null || res.code != "success")
+    if (res == null || res.code != "success" || res.results)
         throw "Failed to download subject data from server. : " + res.code;
     console.log(JSON.stringify(res, null, 2));
     console.log("Successfully downloaded subject data from the server.");
