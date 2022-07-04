@@ -508,92 +508,105 @@ const widgetBuilder = {
                 stack.layoutHorizontally();
                 stack.backgroundColor = new Color("#000000", 0.2);
                 let h1_size = !(temp.setting?.showStdImage
-                    || temp.setting?.showStdInfo) ? 0 : temp.setting.showStdImage ? 30 : 50;
+                    || temp.setting?.showStdInfo) ? 0 : !temp.setting.showStdInfo ? 10 : 50;
                 if (h1_size > 0) {
                     let h1 = stack.addStack();
+                    widgetBuilder.addLine(stack, "vertically", { lengthPercentage: 90 });
                     widgetBuilder.setStackSize(stack, h1, h1_size, 100);
                     this.profile.build(h1);
                 }
                 let h2 = stack.addStack();
 
-                widgetBuilder.setStackSize(stack, h2, 100 - h1_size, 100);
-                this.infomation.build(h2, Subject.getEmptySubject(new Date().getMinutes()));
+                widgetBuilder.setStackSize(stack, h2, 99 - h1_size, 100);
+                let date = new Date();
+                this.infomation.build(h2, Subject.getEmptySubject(date.getMinutes() + (date.getHours() * 60)));
             },
             profile: {
                 build(stack: WidgetStack): void {
-                    stack.layoutHorizontally();
-                    let pictureStackSize = temp.setting?.showStdImage ? 35 : 0;
-                    if (pictureStackSize > 0) {
-                        let picture = stack.addStack();
-                        widgetBuilder.setStackSize(stack, picture, 35, 100);
-                        this.picture(picture);
-                    }
-                    let infoStackSize = temp.setting?.showStdInfo ? 100 - pictureStackSize : 0;
-                    if (infoStackSize > 0) {
-                        let info = stack.addStack();
-                        widgetBuilder.setStackSize(stack, info, infoStackSize, 100);
-                        this.info(info);
-                    }
+                    this.info(stack);
                 },
                 picture(stack: WidgetStack): void {
-                    stack.layoutHorizontally();
-
-                    stack.addSpacer();
+                    stack.layoutVertically();
                     let stack2 = stack.addStack();
-                    stack2.cornerRadius = 10;
-                    stack.addSpacer();
+                    stack2.addSpacer();
 
-                    widgetBuilder.setStackSize(stack, stack2, 85, 100);
-                    if (temp.stdImage != null) stack2.backgroundImage = temp.stdImage;
+                    widgetBuilder.setStackSize(stack, stack2, 90, 90);
+                    if (temp.stdImage != null) {
+                        let image = stack2.addImage(temp.stdImage);
+                        image.cornerRadius = 10;
+                    }
                 },
                 info(stack: WidgetStack): void {
                     stack.layoutVertically();
-                    let name = stack.addStack();
-                    widgetBuilder.addLine(stack, "horizontally");
-                    let mid = stack.addStack();
-                    let bottom = stack.addStack();
 
-                    widgetBuilder.setStackSize(stack, name, 100, 30);
-                    widgetBuilder.setStackSize(stack, mid, 100, 30);
-                    widgetBuilder.setStackSize(stack, bottom, 100, 30);
-                    let fullName =
-                        `${storage.user?.root?.user.titleTh}
-                     ${storage.user?.root?.user.firstNameTh}
-                     ${storage.user?.root?.user.lastNameTh}`.replace("\n", "");
-                    let text_name = name.addText(fullName);
-                    text_name.lineLimit = 1;
-                    text_name.font = Font.systemFont(10);
+                    if (temp.setting?.showStdInfo) {
+                        let top = stack.addStack();
+                        let mid = stack.addStack();
+                        let bottom = stack.addStack();
 
-                    let mid_text_1 = mid.addText(
-                        "คณะ : " + storage.user?.root?.user.student.facultyNameTh
-                        ?? "NULL"
-                    );
-                    let mid_text_2 = mid.addText(
-                        "สาขา : " + storage.user?.root?.user.student.departmentNameTh
-                        ?? "NULL"
-                    );
+                        let top2_size = temp.setting.showStdImage ? 40 : 0;
+
+                        top.layoutHorizontally();
+                        let top1 = top.addStack();
+
+                        widgetBuilder.setStackSize(top, top1, 100 - top2_size, 100);
+                        if (top2_size > 0) {
+                            let top2 = top.addStack();
+                            this.picture(top2);
+                            widgetBuilder.setStackSize(top, top2, top2_size, 100);
+                        }
+
+                        top1.layoutVertically();
+
+                        mid.layoutVertically();
+                        bottom.layoutVertically();
+
+                        widgetBuilder.setStackSize(stack, top1, 100, 30);
+                        widgetBuilder.setStackSize(stack, mid, 100, 30);
+                        widgetBuilder.setStackSize(stack, bottom, 100, 30);
+                        let fullName =
+                            `${storage.user?.root?.user.titleTh}
+ ${storage.user?.root?.user.firstNameTh}
+ ${storage.user?.root?.user.lastNameTh}`.replace("\n", "");
+                        let text_name = top1.addText(fullName);
+                        text_name.lineLimit = 1;
+                        text_name.font = Font.systemFont(9);
+
+                        let mid_text_1 = mid.addText(
+                            "คณะ : " + storage.user?.root?.user.student.facultyNameTh
+                            ?? "NULL"
+                        );
+                        let mid_text_2 = mid.addText(
+                            "สาขา : " + storage.user?.root?.user.student.departmentNameTh
+                            ?? "NULL"
+                        );
 
 
-                    let bottom_text = bottom.addText(
-                        storage.user?.root?.user.student.copenNameEn ?? "NULL"
-                    );
+                        let bottom_text = bottom.addText(
+                            storage.user?.root?.user.student.studentStatusNameEn ?? "NULL"
+                        );
 
-                    [mid_text_1, mid_text_2, bottom_text].forEach(t => {
-                        t.lineLimit = 1;
-                        t.font = Font.systemFont(8);
-                    });
+                        [mid_text_1, mid_text_2, bottom_text].forEach(t => {
+                            t.lineLimit = 2;
+                            t.font = Font.systemFont(11);
+                        });
+                    } else if (temp.setting?.showStdImage) {
+                        this.picture(stack);
+                    }
                 }
             },
             infomation: {
                 build(stack: WidgetStack, subject: Subject): void {
+                    stack.addSpacer(8);
                     let stackBody = stack.addStack();
-                    stackBody.addSpacer(10);
+                    stack.addSpacer(8);
+
                     stackBody.layoutVertically();
+                    stackBody.addSpacer(8);
                     let top = stackBody.addStack();
-                    widgetBuilder.addLine(stackBody, "horizontally");
                     let body = stackBody.addStack();
-                    widgetBuilder.addLine(stackBody, "horizontally");
                     let foot = stackBody.addStack();
+                    stackBody.addSpacer(8);
 
                     widgetBuilder.setStackSize(stackBody, top, 100, 20);
                     widgetBuilder.setStackSize(stackBody, body, 100, 60);
@@ -618,7 +631,7 @@ const widgetBuilder = {
 
                         [text1, text2].forEach(text => {
                             text.lineLimit = 1;
-                            text.font = Font.systemFont(10);
+                            text.font = Font.systemFont(12);
                             text.textColor = Color.white();
                         });
                     }
@@ -635,33 +648,35 @@ const widgetBuilder = {
                         stack.layoutVertically();
                         stack.addSpacer();
                         let stack2 = stack.addStack();
+                        widgetBuilder.setStackSize(stack, stack2, 100, 100);
                         stack2.addSpacer();
 
                         let foot1 = stack2.addStack();
+                        stack2.addSpacer();
                         let foot2 = stack2.addStack();
+                        stack2.addSpacer();
                         let foot3 = stack2.addStack();
-                        foot3.addSpacer();
 
                         widgetBuilder.setStackSize(stack2, foot1, 25, 100);
                         widgetBuilder.setStackSize(stack2, foot2, 50, 100);
                         widgetBuilder.setStackSize(stack2, foot3, 25, 100);
-                        storage.groupCourse?.results[0].course[0].teacher_name
+                        foot3.addSpacer();
                         let text1 = foot1.addText("คาบที่ : " + subject.getPeriod());
                         let text2 = foot2.addText("ผู้สอน : " + subject.getTeacherName());
                         let text3 = foot3.addText("ห้อง : " + subject.getRoom());
                         [text1, text2, text3].forEach((t) => {
                             t.lineLimit = 1;
                             t.textColor = Color.white();
+                            t.font = Font.systemFont(12);
                         });
-                        foot1.addSpacer();
-                        foot2.addSpacer();
                     }
                 }
             }
         },
         body: {
             build(stack: WidgetStack): void {
-
+                stack.layoutHorizontally();
+                stack.addText("Under development...");
             }
         }
     }
