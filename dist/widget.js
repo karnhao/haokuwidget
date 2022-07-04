@@ -46,37 +46,6 @@ async function getSchedule(token, stdStatusCode, campusCode, majorCode, userType
     };
     return await req.loadJSON();
 }
-// async function tokenAuthorizationLoadCourseData(token: string, cademicYear: string, semester: string, stdId: string): Promise<{ [key: string]: any }> {
-//     let req = new Request(`https://myapi.ku.th/std-profile/getGroupCourse?cademicYear=${cademicYear}&semester=${semester}&stdId=${stdId}`);
-//     req.method = "OPTIONS";
-//     req.headers = {
-//         "Accept": "*/*",
-//         "Accept-Encoding": "gzip, deflate, br",
-//         "Accept-Language": "en-US,en;q=0.9,th;0.8",
-//         "Access-Control-Request-Headers": "app-key, x-access-token",
-//         "Access-Control-Request-Method": "GET",
-//         "Origin": "https://my.ku.th",
-//         "Referer": "https://my.ku.th",
-//         "x-access-token": token
-//     };
-//     await req.load();
-//     return req.response;
-//     // :authority: myapi.ku.th
-//     // :method: OPTIONS
-//     // :path: /std-profile/getGroupCourse?academicYear=2565&semester=1&stdId=224677
-//     // :scheme: https
-//     // accept: */*
-//     // accept-encoding: gzip, deflate, br
-//     // accept-language: th-TH,th;q=0.9
-//     // access-control-request-headers: app-key,x-access-token
-//     // access-control-request-method: GET
-//     // origin: https://my.ku.th
-//     // referer: https://my.ku.th/
-//     // sec-fetch-dest: empty
-//     // sec-fetch-mode: cors
-//     // sec-fetch-site: same-site
-//     // user-agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/102.0.0.0 Safari/537.36
-// }
 /**
  * @param token x-access-token
  * @param cademicYear ปีการศึกษา
@@ -386,11 +355,11 @@ const widgetBuilder = {
     genRanHex(size) { return [...Array(size)].map(() => Math.floor(Math.random() * 16).toString(16)).join(''); },
     genRanColor(alpha) { return new Color(`#${this.genRanHex(6)}`, alpha); },
     addLine(stack, type, options = {}) {
-        let color = options?.color ?? Device.isUsingDarkAppearance() ? new Color("#FFFFFF", 1) : new Color("#000000", 1);
+        let color = options?.color ?? Device.isUsingDarkAppearance() ? new Color("#FFFFFF", 0.5) : new Color("#000000", 1);
         let lengthPercentage = options?.lengthPercentage ?? 100;
         let line = stack.addStack();
         line.backgroundColor = color;
-        this.setStackSize(stack, line, 100, 100, type == "vertically" ? { width: 1 * lengthPercentage / 100 } : { height: 1 * lengthPercentage / 100 });
+        this.setStackSize(stack, line, 100, 100, type == "vertically" ? { width: 0.5 * lengthPercentage / 100 } : { height: 0.5 * lengthPercentage / 100 });
     },
     sizeCal(origin, percentageWidth, percentageHeight) {
         return new Size(origin.width * percentageWidth / 100, origin.height * percentageHeight / 100);
@@ -439,6 +408,7 @@ const widgetBuilder = {
         },
         headers: {
             build(stack) {
+                stack.cornerRadius = 12;
                 stack.layoutHorizontally();
                 stack.backgroundColor = new Color("#000000", 0.2);
                 let h1_size = !(temp.setting?.showStdImage
@@ -482,22 +452,23 @@ const widgetBuilder = {
                     stack.layoutVertically();
                     let name = stack.addStack();
                     widgetBuilder.addLine(stack, "horizontally");
-                    let faculty = stack.addStack();
-                    let department = stack.addStack();
-                    widgetBuilder.setStackSize(stack, name, 100, 40);
-                    widgetBuilder.setStackSize(stack, faculty, 100, 30);
-                    widgetBuilder.setStackSize(stack, department, 100, 30);
+                    let mid = stack.addStack();
+                    let bottom = stack.addStack();
+                    widgetBuilder.setStackSize(stack, name, 100, 30);
+                    widgetBuilder.setStackSize(stack, mid, 100, 30);
+                    widgetBuilder.setStackSize(stack, bottom, 100, 30);
                     let fullName = `${storage.user?.root?.user.titleTh}
                      ${storage.user?.root?.user.firstNameTh}
                      ${storage.user?.root?.user.lastNameTh}`.replace("\n", "");
                     let text_name = name.addText(fullName);
                     text_name.lineLimit = 1;
-                    text_name.font = Font.systemFont(12);
-                    let text_faculty = faculty.addText("คณะ : " + storage.user?.root?.user.student.facultyNameTh
+                    text_name.font = Font.systemFont(10);
+                    let mid_text_1 = mid.addText("คณะ : " + storage.user?.root?.user.student.facultyNameTh
                         ?? "NULL");
-                    let text_department = department.addText("สาขา : " + storage.user?.root?.user.student.departmentNameTh
+                    let mid_text_2 = mid.addText("สาขา : " + storage.user?.root?.user.student.departmentNameTh
                         ?? "NULL");
-                    [text_faculty, text_department].forEach(t => {
+                    let bottom_text = bottom.addText(storage.user?.root?.user.student.copenNameEn ?? "NULL");
+                    [mid_text_1, mid_text_2, bottom_text].forEach(t => {
                         t.lineLimit = 1;
                         t.font = Font.systemFont(8);
                     });
@@ -509,16 +480,13 @@ const widgetBuilder = {
                     stackBody.addSpacer(10);
                     stackBody.layoutVertically();
                     let top = stackBody.addStack();
-                    widgetBuilder.addLine(stack, "horizontally");
+                    widgetBuilder.addLine(stackBody, "horizontally");
                     let body = stackBody.addStack();
-                    widgetBuilder.addLine(stack, "horizontally");
+                    widgetBuilder.addLine(stackBody, "horizontally");
                     let foot = stackBody.addStack();
                     widgetBuilder.setStackSize(stackBody, top, 100, 20);
                     widgetBuilder.setStackSize(stackBody, body, 100, 60);
                     widgetBuilder.setStackSize(stackBody, foot, 100, 20);
-                    // top.backgroundColor = widgetBuilder.genRanColor(1);
-                    // body.backgroundColor = widgetBuilder.genRanColor(1);
-                    // foot.backgroundColor = widgetBuilder.genRanColor(1);
                     this.top.build(top, subject);
                     this.body.build(body, subject);
                     this.foot.build(foot, subject);
@@ -533,7 +501,11 @@ const widgetBuilder = {
                         top1.addSpacer();
                         top2.addSpacer();
                         let text2 = top2.addText("เวลา : " + subject.getLocaleTime());
-                        [text1, text2].forEach(text => { text.lineLimit = 1; });
+                        [text1, text2].forEach(text => {
+                            text.lineLimit = 1;
+                            text.font = Font.systemFont(10);
+                            text.textColor = Color.white();
+                        });
                     }
                 },
                 body: {
@@ -545,13 +517,17 @@ const widgetBuilder = {
                 },
                 foot: {
                     build(stack, subject) {
-                        let foot1 = stack.addStack();
-                        let foot2 = stack.addStack();
-                        let foot3 = stack.addStack();
+                        stack.layoutVertically();
+                        stack.addSpacer();
+                        let stack2 = stack.addStack();
+                        stack2.addSpacer();
+                        let foot1 = stack2.addStack();
+                        let foot2 = stack2.addStack();
+                        let foot3 = stack2.addStack();
                         foot3.addSpacer();
-                        widgetBuilder.setStackSize(stack, foot1, 25, 100);
-                        widgetBuilder.setStackSize(stack, foot2, 50, 100);
-                        widgetBuilder.setStackSize(stack, foot3, 25, 100);
+                        widgetBuilder.setStackSize(stack2, foot1, 25, 100);
+                        widgetBuilder.setStackSize(stack2, foot2, 50, 100);
+                        widgetBuilder.setStackSize(stack2, foot3, 25, 100);
                         storage.groupCourse?.results[0].course[0].teacher_name;
                         let text1 = foot1.addText("คาบที่ : " + subject.getPeriod());
                         let text2 = foot2.addText("ผู้สอน : " + subject.getTeacherName());
@@ -644,4 +620,3 @@ else if (config.runsInWidget) {
 }
 alertMessage("Done", "Progress completed without errors.");
 Script.complete();
-export {};
