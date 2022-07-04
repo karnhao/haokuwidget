@@ -190,8 +190,9 @@ class Subject {
     getLocaleTimeStringFromMinutes(minutes) {
         if (minutes == Infinity)
             return "???";
-        let pad = (d) => (d < 0) ? '0' + d.toString() : d.toString();
-        return `${pad(Math.floor(minutes / 60))}:${pad(minutes % 60)}`;
+        let pad = (d) => (d < 10) ? '0' + d.toString() : d.toString();
+        let hours = Math.floor(minutes / 60);
+        return `${pad(hours)}:${pad(minutes % 60)}`;
     }
     getLocaleStartTime() {
         return this.getLocaleTimeStringFromMinutes(this.startTime);
@@ -427,7 +428,6 @@ const widgetBuilder = {
             stack.layoutVertically();
             stack.size = new Size(700, 330);
             let header = stack.addStack();
-            widgetBuilder.addLine(stack, "horizontally");
             let body = stack.addStack();
             let footer = stack.addStack();
             footer.backgroundColor = new Color("#ABCDEF", 1);
@@ -441,7 +441,6 @@ const widgetBuilder = {
             build(stack) {
                 stack.layoutHorizontally();
                 stack.backgroundColor = new Color("#000000", 0.2);
-                widgetBuilder.addLine(stack, "vertically");
                 let h1_size = !(temp.setting?.showStdImage
                     || temp.setting?.showStdInfo) ? 0 : temp.setting.showStdImage ? 30 : 50;
                 if (h1_size > 0) {
@@ -463,8 +462,6 @@ const widgetBuilder = {
                         this.picture(picture);
                     }
                     let infoStackSize = temp.setting?.showStdInfo ? 100 - pictureStackSize : 0;
-                    if (pictureStackSize > 0 && infoStackSize > 0)
-                        widgetBuilder.addLine(stack, "vertically");
                     if (infoStackSize > 0) {
                         let info = stack.addStack();
                         widgetBuilder.setStackSize(stack, info, infoStackSize, 100);
@@ -495,25 +492,30 @@ const widgetBuilder = {
                      ${storage.user?.root?.user.lastNameTh}`.replace("\n", "");
                     let text_name = name.addText(fullName);
                     text_name.lineLimit = 1;
-                    text_name.font = Font.systemFont(24);
+                    text_name.font = Font.systemFont(12);
                     let text_faculty = faculty.addText("คณะ : " + storage.user?.root?.user.student.facultyNameTh
                         ?? "NULL");
                     let text_department = department.addText("สาขา : " + storage.user?.root?.user.student.departmentNameTh
                         ?? "NULL");
-                    [text_faculty, text_department].forEach(t => t.lineLimit = 1);
+                    [text_faculty, text_department].forEach(t => {
+                        t.lineLimit = 1;
+                        t.font = Font.systemFont(8);
+                    });
                 }
             },
             infomation: {
                 build(stack, subject) {
-                    stack.layoutVertically();
-                    let top = stack.addStack();
+                    let stackBody = stack.addStack();
+                    stackBody.addSpacer(10);
+                    stackBody.layoutVertically();
+                    let top = stackBody.addStack();
                     widgetBuilder.addLine(stack, "horizontally");
-                    let body = stack.addStack();
+                    let body = stackBody.addStack();
                     widgetBuilder.addLine(stack, "horizontally");
-                    let foot = stack.addStack();
-                    widgetBuilder.setStackSize(stack, top, 100, 20);
-                    widgetBuilder.setStackSize(stack, body, 100, 60);
-                    widgetBuilder.setStackSize(stack, foot, 100, 20);
+                    let foot = stackBody.addStack();
+                    widgetBuilder.setStackSize(stackBody, top, 100, 20);
+                    widgetBuilder.setStackSize(stackBody, body, 100, 60);
+                    widgetBuilder.setStackSize(stackBody, foot, 100, 20);
                     // top.backgroundColor = widgetBuilder.genRanColor(1);
                     // body.backgroundColor = widgetBuilder.genRanColor(1);
                     // foot.backgroundColor = widgetBuilder.genRanColor(1);
@@ -536,6 +538,7 @@ const widgetBuilder = {
                 },
                 body: {
                     build(stack, subject) {
+                        stack.layoutVertically();
                         let text = stack.addText(subject.getNameTH());
                         text.textColor = Color.yellow();
                     }
@@ -641,3 +644,4 @@ else if (config.runsInWidget) {
 }
 alertMessage("Done", "Progress completed without errors.");
 Script.complete();
+export {};
