@@ -118,6 +118,18 @@ class Subject {
     name_en = "";
     id = "";
     day = null;
+    teacher_name = "";
+    period = -1;
+    room = "";
+    static getEmptySubject(startTime = 0, period = -1) {
+        let subject = new Subject();
+        subject.setNameEN("Empty❌");
+        subject.setNameTH("ไม่มี❌");
+        subject.setRoom("NULL");
+        subject.setWidth(1439 - startTime);
+        subject.setPeriod(period);
+        return subject;
+    }
     getStartTime() {
         return this.startTime;
     }
@@ -156,6 +168,39 @@ class Subject {
     }
     setDay(value) {
         this.day = value;
+    }
+    getTeacherName() {
+        return this.teacher_name;
+    }
+    setTeacherName(value) {
+        this.teacher_name = value;
+    }
+    getPeriod() {
+        return this.period;
+    }
+    setPeriod(value) {
+        this.period = value;
+    }
+    getRoom() {
+        return this.room;
+    }
+    setRoom(value) {
+        this.room = value;
+    }
+    getLocaleTimeStringFromMinutes(minutes) {
+        if (minutes == Infinity)
+            return "???";
+        let pad = (d) => (d < 0) ? '0' + d.toString() : d.toString();
+        return `${pad(Math.floor(minutes / 60))}:${pad(minutes % 60)}`;
+    }
+    getLocaleStartTime() {
+        return this.getLocaleTimeStringFromMinutes(this.startTime);
+    }
+    getLocaleEndTime() {
+        return this.getLocaleTimeStringFromMinutes(this.startTime + this.width);
+    }
+    getLocaleTime() {
+        return `${this.getLocaleStartTime()} - ${this.getLocaleEndTime()}`;
     }
 }
 class SubjectDay {
@@ -395,10 +440,10 @@ const widgetBuilder = {
         headers: {
             build(stack) {
                 stack.layoutHorizontally();
-                stack.backgroundColor = new Color("#FFFFFF", 0.2);
+                stack.backgroundColor = new Color("#000000", 0.2);
                 widgetBuilder.addLine(stack, "vertically");
                 let h1_size = !(temp.setting?.showStdImage
-                    || temp.setting?.showStdInfo) ? 0 : 50;
+                    || temp.setting?.showStdInfo) ? 0 : temp.setting.showStdImage ? 30 : 50;
                 if (h1_size > 0) {
                     let h1 = stack.addStack();
                     widgetBuilder.setStackSize(stack, h1, h1_size, 100);
@@ -406,7 +451,7 @@ const widgetBuilder = {
                 }
                 let h2 = stack.addStack();
                 widgetBuilder.setStackSize(stack, h2, 100 - h1_size, 100);
-                this.infomation.build(h2);
+                this.infomation.build(h2, Subject.getEmptySubject(new Date().getMinutes()));
             },
             profile: {
                 build(stack) {
@@ -430,6 +475,7 @@ const widgetBuilder = {
                     stack.layoutHorizontally();
                     stack.addSpacer();
                     let stack2 = stack.addStack();
+                    stack2.cornerRadius = 10;
                     stack.addSpacer();
                     widgetBuilder.setStackSize(stack, stack2, 85, 100);
                     if (temp.stdImage != null)
@@ -444,13 +490,21 @@ const widgetBuilder = {
                     widgetBuilder.setStackSize(stack, name, 100, 40);
                     widgetBuilder.setStackSize(stack, faculty, 100, 30);
                     widgetBuilder.setStackSize(stack, department, 100, 30);
-                    name.backgroundColor = widgetBuilder.genRanColor(1);
-                    faculty.backgroundColor = widgetBuilder.genRanColor(1);
-                    department.backgroundColor = widgetBuilder.genRanColor(1);
+                    let fullName = `${storage.user?.root?.user.titleTh}
+                     ${storage.user?.root?.user.firstNameTh}
+                     ${storage.user?.root?.user.lastNameTh}`.replace("\n", "");
+                    let text_name = name.addText(fullName);
+                    text_name.lineLimit = 1;
+                    text_name.font = Font.systemFont(24);
+                    let text_faculty = faculty.addText("คณะ : " + storage.user?.root?.user.student.facultyNameTh
+                        ?? "NULL");
+                    let text_department = department.addText("สาขา : " + storage.user?.root?.user.student.departmentNameTh
+                        ?? "NULL");
+                    [text_faculty, text_department].forEach(t => t.lineLimit = 1);
                 }
             },
             infomation: {
-                build(stack) {
+                build(stack, subject) {
                     stack.layoutVertically();
                     let top = stack.addStack();
                     widgetBuilder.addLine(stack, "horizontally");
@@ -460,25 +514,57 @@ const widgetBuilder = {
                     widgetBuilder.setStackSize(stack, top, 100, 20);
                     widgetBuilder.setStackSize(stack, body, 100, 60);
                     widgetBuilder.setStackSize(stack, foot, 100, 20);
-                    top.backgroundColor = widgetBuilder.genRanColor(1);
-                    body.backgroundColor = widgetBuilder.genRanColor(1);
-                    foot.backgroundColor = widgetBuilder.genRanColor(1);
+                    // top.backgroundColor = widgetBuilder.genRanColor(1);
+                    // body.backgroundColor = widgetBuilder.genRanColor(1);
+                    // foot.backgroundColor = widgetBuilder.genRanColor(1);
+                    this.top.build(top, subject);
+                    this.body.build(body, subject);
+                    this.foot.build(foot, subject);
                 },
                 top: {
-                    build(stack) {
-                        stack.addText("Top");
+                    build(stack, subject) {
+                        let top1 = stack.addStack();
+                        let top2 = stack.addStack();
+                        widgetBuilder.setStackSize(stack, top1, 50, 100);
+                        widgetBuilder.setStackSize(stack, top2, 50, 100);
+                        let text1 = top1.addText("กำลังเรียนวิชา📚");
+                        top1.addSpacer();
+                        top2.addSpacer();
+                        let text2 = top2.addText("เวลา : " + subject.getLocaleTime());
+                        [text1, text2].forEach(text => { text.lineLimit = 1; });
                     }
                 },
                 body: {
-                    build(stack) {
-                        stack.addText("Body");
+                    build(stack, subject) {
+                        let text = stack.addText(subject.getNameTH());
+                        text.textColor = Color.yellow();
                     }
                 },
                 foot: {
-                    build(stack) {
-                        stack.addText("Foot");
+                    build(stack, subject) {
+                        let foot1 = stack.addStack();
+                        let foot2 = stack.addStack();
+                        let foot3 = stack.addStack();
+                        foot3.addSpacer();
+                        widgetBuilder.setStackSize(stack, foot1, 25, 100);
+                        widgetBuilder.setStackSize(stack, foot2, 50, 100);
+                        widgetBuilder.setStackSize(stack, foot3, 25, 100);
+                        storage.groupCourse?.results[0].course[0].teacher_name;
+                        let text1 = foot1.addText("คาบที่ : " + subject.getPeriod());
+                        let text2 = foot2.addText("ผู้สอน : " + subject.getTeacherName());
+                        let text3 = foot3.addText("ห้อง : " + subject.getRoom());
+                        [text1, text2, text3].forEach((t) => {
+                            t.lineLimit = 1;
+                            t.textColor = Color.white();
+                        });
+                        foot1.addSpacer();
+                        foot2.addSpacer();
                     }
                 }
+            }
+        },
+        body: {
+            build(stack) {
             }
         }
     }
