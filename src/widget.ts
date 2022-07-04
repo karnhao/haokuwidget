@@ -4,12 +4,11 @@ import { Storage } from './interfaces/storage'
 import { Settings } from './interfaces/settings';
 
 interface TemporaryData {
-    stdImage: Image | null;
+    stdImage?: Image,
+    setting?: Settings
 }
 
-const temp: TemporaryData = {
-    stdImage: null
-}
+const temp: TemporaryData = {}
 
 const storage: Storage = {}
 
@@ -276,14 +275,18 @@ const menus = {
 
     /**
      * แสดงเมนูการตั้งค่า ประกอบไปด้วย Background image and cancel.
-     * @returns -1 is cancelled and 0 is Background image.
+     * @returns a number
+     *  - -1 is cancelled,
+     *  - 0 is toggle profile picture.
+     *  - 1 is toggle profile infomation.
      */
     settingMenus: async (): Promise<number> => {
         let s = new Alert();
-        s.addAction("Background image");
+        s.addAction(temp.setting?.showStdImage ? "Disable Profile Picture" : "Enable Profile Picture");
+        s.addAction(temp.setting?.showStdInfo ? "Disable Profile Info" : "Enable Profile Info");
         s.addCancelAction("Cancel");
         s.title = "Choose";
-        s.message = "Choose Actions";
+        s.message = "Choose setting actions";
         return await s.present();
     }
 }
@@ -335,8 +338,12 @@ const fileManager = {
     saveData(data: Storage): void {
         fm.writeString(saveFilePath, JSON.stringify(data));
     },
-    getSaveData(): Storage | null {
-        return this.isSaveFileExist() ? JSON.parse(fm.readString(saveFilePath)) : null;
+    /**
+     * This will error when save file is not exists.
+     * @returns Save data.
+     */
+    getSaveData(): Storage {
+        return JSON.parse(fm.readString(saveFilePath));
     },
     deleteSaveData(): void {
         fm.remove(saveFilePath);
@@ -347,8 +354,8 @@ const fileManager = {
     saveStdImage(data: Image): void {
         fm.writeImage(saveImagePath, data);
     },
-    getSaveStdImage(): Image | null {
-        return this.isSaveStdImageExist() ? fm.readImage(saveImagePath) : null;
+    getSaveStdImage(): Image | undefined {
+        return this.isSaveStdImageExist() ? fm.readImage(saveImagePath) : undefined;
     },
     deleteStdImage(): void {
         fm.remove(saveImagePath);
@@ -359,8 +366,12 @@ const fileManager = {
     saveSetting(data: Settings): void {
         fm.writeString(saveSettingPath, JSON.stringify(data));
     },
-    getSaveSetting(): Settings | null {
-        return this.isSaveSettingExist() ? JSON.parse(fm.readString(saveSettingPath)) : null;
+    /**
+     * this will error when save file is not exists.
+     * @returns Settings object
+     */
+    getSaveSetting(): Settings {
+        return JSON.parse(fm.readString(saveSettingPath));
     },
     deleteSettingFile(): void {
         fm.remove(saveSettingPath);
@@ -473,29 +484,38 @@ const widgetBuilder = {
             build(stack: WidgetStack): void {
                 stack.layoutHorizontally();
                 stack.backgroundColor = new Color("#FFFFFF", 0.2);
-                let h1 = stack.addStack();
                 widgetBuilder.addLine(stack, "vertically");
+                let h1_size = !(temp.setting?.showStdImage
+                    || temp.setting?.showStdInfo) ? 0 : 50;
+                if (h1_size > 0) {
+                    let h1 = stack.addStack();
+                    widgetBuilder.setStackSize(stack, h1, h1_size, 100);
+                    this.profile.build(h1);
+                }
                 let h2 = stack.addStack();
 
-                widgetBuilder.setStackSize(stack, h1, 50, 100);
-                widgetBuilder.setStackSize(stack, h2, 50, 100);
-
-                this.profile.build(h1);
+                widgetBuilder.setStackSize(stack, h2, 100 - h1_size, 100);
                 this.infomation.build(h2);
             },
             profile: {
                 build(stack: WidgetStack): void {
                     stack.layoutHorizontally();
-                    let picture = stack.addStack();
-                    widgetBuilder.addLine(stack, "vertically");
-                    let info = stack.addStack();
+                    let pictureStackSize = temp.setting?.showStdImage ? 35 : 0;
+                    if (pictureStackSize > 0) {
+                        let picture = stack.addStack();
+                        widgetBuilder.setStackSize(stack, picture, 35, 100);
+                        this.picture(picture);
+                    }
+                    let infoStackSize = temp.setting?.showStdInfo ? 100 - pictureStackSize : 0;
 
-                    widgetBuilder.setStackSize(stack, picture, 35, 100);
-                    widgetBuilder.setStackSize(stack, info, 65, 100);
+                    if (pictureStackSize > 0 && infoStackSize > 0)
+                        widgetBuilder.addLine(stack, "vertically");
 
-                    this.picture(picture);
-                    this.info(info);
-
+                    if (infoStackSize > 0) {
+                        let info = stack.addStack();
+                        widgetBuilder.setStackSize(stack, info, infoStackSize, 100);
+                        this.info(info);
+                    }
                 },
                 picture(stack: WidgetStack): void {
                     stack.layoutHorizontally();
@@ -566,6 +586,7 @@ if (!fileManager.isSaveSettingExist()) {
         showStdInfo: true
     });
 }
+temp.setting = fileManager.getSaveSetting();
 
 if (config.runsInApp) {
     switch (await menus.rootMenus()) {
@@ -594,7 +615,20 @@ if (config.runsInApp) {
             }
             break;
         case 1:
-            await menus.settingMenus();
+            switch (await menus.settingMenus()) {
+                case 0:
+                    // toggle profile picture
+                    temp.setting.showStdImage = !temp.setting.showStdImage;
+                    fileManager.saveSetting(temp.setting);
+                    break;
+                case 1:
+                    // toggle profile infomation
+                    temp.setting.showStdInfo = !temp.setting.showStdInfo;
+                    fileManager.saveSetting(temp.setting);
+                    break;
+                default:
+                    break;
+            }
             break;
         default:
     }
@@ -602,13 +636,10 @@ if (config.runsInApp) {
     if (fileManager.isSaveFileExist()) {
         if (config.widgetFamily == "extraLarge") {
             let saveData = fileManager.getSaveData();
-            let saveImageData = fileManager.getSaveStdImage();
-            temp.stdImage = saveImageData;
-            if (saveData) {
-                storage.groupCourse = saveData.groupCourse;
-                storage.user = saveData.user;
-                storage.setting = saveData.setting;
-            }
+            temp.stdImage = fileManager.getSaveStdImage();
+            storage.groupCourse = saveData.groupCourse;
+            storage.user = saveData.user;
+            temp.setting = fileManager.getSaveSetting();
             Script.setWidget(widgetBuilder.extraLarge.build());
         } else Script.setWidget(widgetBuilder.notSupported());
     } else Script.setWidget(widgetBuilder.noData());

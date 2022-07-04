@@ -6,6 +6,5 @@ export interface Storage {
     user?: {
         root?: Root
     },
-    groupCourse?: GroupCourseRoot,
-    setting?: Settings
+    groupCourse?: GroupCourseRoot
 }

@@ -1,15 +1,12 @@
-const temp = {
-    stdImage: null
-};
-const storage = {
-    user: undefined,
-    groupCourse: undefined
-};
+const temp = {};
+const storage = {};
 const saveFileName = "haokuwidget_data.json";
 const saveImageName = "haokuwidget_stdimage.jpg";
+const saveSettingName = "haokuwidget_setting.json";
 const fm = FileManager.local();
 const saveFilePath = fm.joinPath(fm.libraryDirectory(), saveFileName);
 const saveImagePath = fm.joinPath(fm.libraryDirectory(), saveImageName);
+const saveSettingPath = fm.joinPath(fm.libraryDirectory(), saveSettingName);
 async function login(body) {
     let req = new Request("https://myapi.ku.th/auth/login");
     req.method = "POST";
@@ -217,8 +214,8 @@ const menus = {
      */
     actionMenus: async () => {
         let a = new Alert();
-        a.addAction(`Download Data${isSaveFileExist() ? " (replace)" : ""}`);
-        if (isSaveFileExist())
+        a.addAction(`Download Data${fileManager.isSaveFileExist() ? " (replace)" : ""}`);
+        if (fileManager.isSaveFileExist())
             a.addDestructiveAction("Delete Save Data");
         a.addCancelAction("Cancel");
         a.title = "Choose";
@@ -227,14 +224,18 @@ const menus = {
     },
     /**
      * แสดงเมนูการตั้งค่า ประกอบไปด้วย Background image and cancel.
-     * @returns -1 is cancelled and 0 is Background image.
+     * @returns a number
+     *  - -1 is cancelled,
+     *  - 0 is toggle profile picture.
+     *  - 1 is toggle profile infomation.
      */
     settingMenus: async () => {
         let s = new Alert();
-        s.addAction("Background image");
+        s.addAction(temp.setting?.showStdImage ? "Disable Profile Picture" : "Enable Profile Picture");
+        s.addAction(temp.setting?.showStdInfo ? "Disable Profile Info" : "Enable Profile Info");
         s.addCancelAction("Cancel");
         s.title = "Choose";
-        s.message = "Choose Actions";
+        s.message = "Choose setting actions";
         return await s.present();
     }
 };
@@ -269,30 +270,52 @@ async function getAllDownloadData() {
     }
     return { groupCourse: res, user: r, studentImage: stdImage };
 }
-function isSaveFileExist() {
-    return fm.fileExists(saveFilePath);
-}
-function saveData(data) {
-    fm.writeString(saveFilePath, JSON.stringify(data));
-}
-function getSaveData() {
-    return isSaveFileExist() ? JSON.parse(fm.readString(saveFilePath)) : null;
-}
-function deleteSaveData() {
-    fm.remove(saveFilePath);
-}
-function isSaveStdImageExist() {
-    return fm.fileExists(saveImagePath);
-}
-function saveStdImage(data) {
-    fm.writeImage(saveImagePath, data);
-}
-function getSaveStdImage() {
-    return isSaveStdImageExist() ? fm.readImage(saveImagePath) : null;
-}
-function deleteStdImage() {
-    fm.remove(saveImagePath);
-}
+const fileManager = {
+    isSaveFileExist() {
+        return fm.fileExists(saveFilePath);
+    },
+    saveData(data) {
+        fm.writeString(saveFilePath, JSON.stringify(data));
+    },
+    /**
+     * This will error when save file is not exists.
+     * @returns Save data.
+     */
+    getSaveData() {
+        return JSON.parse(fm.readString(saveFilePath));
+    },
+    deleteSaveData() {
+        fm.remove(saveFilePath);
+    },
+    isSaveStdImageExist() {
+        return fm.fileExists(saveImagePath);
+    },
+    saveStdImage(data) {
+        fm.writeImage(saveImagePath, data);
+    },
+    getSaveStdImage() {
+        return this.isSaveStdImageExist() ? fm.readImage(saveImagePath) : undefined;
+    },
+    deleteStdImage() {
+        fm.remove(saveImagePath);
+    },
+    isSaveSettingExist() {
+        return fm.fileExists(saveSettingPath);
+    },
+    saveSetting(data) {
+        fm.writeString(saveSettingPath, JSON.stringify(data));
+    },
+    /**
+     * this will error when save file is not exists.
+     * @returns Settings object
+     */
+    getSaveSetting() {
+        return JSON.parse(fm.readString(saveSettingPath));
+    },
+    deleteSettingFile() {
+        fm.remove(saveSettingPath);
+    }
+};
 async function alert(title, message, actions = [{ text: "OK", option: "normal" }]) {
     if (config.runsInWidget)
         return;
@@ -373,24 +396,35 @@ const widgetBuilder = {
             build(stack) {
                 stack.layoutHorizontally();
                 stack.backgroundColor = new Color("#FFFFFF", 0.2);
-                let h1 = stack.addStack();
                 widgetBuilder.addLine(stack, "vertically");
+                let h1_size = !(temp.setting?.showStdImage
+                    || temp.setting?.showStdInfo) ? 0 : 50;
+                if (h1_size > 0) {
+                    let h1 = stack.addStack();
+                    widgetBuilder.setStackSize(stack, h1, h1_size, 100);
+                    this.profile.build(h1);
+                }
                 let h2 = stack.addStack();
-                widgetBuilder.setStackSize(stack, h1, 50, 100);
-                widgetBuilder.setStackSize(stack, h2, 50, 100);
-                this.profile.build(h1);
+                widgetBuilder.setStackSize(stack, h2, 100 - h1_size, 100);
                 this.infomation.build(h2);
             },
             profile: {
                 build(stack) {
                     stack.layoutHorizontally();
-                    let picture = stack.addStack();
-                    widgetBuilder.addLine(stack, "vertically");
-                    let info = stack.addStack();
-                    widgetBuilder.setStackSize(stack, picture, 35, 100);
-                    widgetBuilder.setStackSize(stack, info, 65, 100);
-                    this.picture(picture);
-                    this.info(info);
+                    let pictureStackSize = temp.setting?.showStdImage ? 35 : 0;
+                    if (pictureStackSize > 0) {
+                        let picture = stack.addStack();
+                        widgetBuilder.setStackSize(stack, picture, 35, 100);
+                        this.picture(picture);
+                    }
+                    let infoStackSize = temp.setting?.showStdInfo ? 100 - pictureStackSize : 0;
+                    if (pictureStackSize > 0 && infoStackSize > 0)
+                        widgetBuilder.addLine(stack, "vertically");
+                    if (infoStackSize > 0) {
+                        let info = stack.addStack();
+                        widgetBuilder.setStackSize(stack, info, infoStackSize, 100);
+                        this.info(info);
+                    }
                 },
                 picture(stack) {
                     stack.layoutHorizontally();
@@ -449,6 +483,13 @@ const widgetBuilder = {
         }
     }
 };
+if (!fileManager.isSaveSettingExist()) {
+    fileManager.saveSetting({
+        showStdImage: true,
+        showStdInfo: true
+    });
+}
+temp.setting = fileManager.getSaveSetting();
 if (config.runsInApp) {
     switch (await menus.rootMenus()) {
         case 0:
@@ -460,9 +501,9 @@ if (config.runsInApp) {
                         let data = await getAllDownloadData();
                         storage.groupCourse = data.groupCourse;
                         storage.user = { root: data.user };
-                        saveData(storage);
+                        fileManager.saveData(storage);
                         if (data.studentImage != null)
-                            saveStdImage(data.studentImage);
+                            fileManager.saveStdImage(data.studentImage);
                     }
                     catch (error) {
                         await alertError("Error", "Failed to download subject data\n" + error);
@@ -470,29 +511,40 @@ if (config.runsInApp) {
                     break;
                 case 1:
                     // delete data
-                    deleteSaveData();
-                    deleteStdImage();
+                    fileManager.deleteSaveData();
+                    fileManager.deleteStdImage();
                     break;
                 default:
                     break;
             }
             break;
         case 1:
-            await menus.settingMenus();
+            switch (await menus.settingMenus()) {
+                case 0:
+                    // toggle profile picture
+                    temp.setting.showStdImage = !temp.setting.showStdImage;
+                    fileManager.saveSetting(temp.setting);
+                    break;
+                case 1:
+                    // toggle profile infomation
+                    temp.setting.showStdInfo = !temp.setting.showStdInfo;
+                    fileManager.saveSetting(temp.setting);
+                    break;
+                default:
+                    break;
+            }
             break;
         default:
     }
 }
 else if (config.runsInWidget) {
-    if (isSaveFileExist()) {
+    if (fileManager.isSaveFileExist()) {
         if (config.widgetFamily == "extraLarge") {
-            let saveData = getSaveData();
-            let saveImageData = getSaveStdImage();
-            temp.stdImage = saveImageData;
-            if (saveData) {
-                storage.groupCourse = saveData.groupCourse;
-                storage.user = saveData.user;
-            }
+            let saveData = fileManager.getSaveData();
+            temp.stdImage = fileManager.getSaveStdImage();
+            storage.groupCourse = saveData.groupCourse;
+            storage.user = saveData.user;
+            temp.setting = fileManager.getSaveSetting();
             Script.setWidget(widgetBuilder.extraLarge.build());
         }
         else
