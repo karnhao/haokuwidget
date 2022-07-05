@@ -122,6 +122,7 @@ class Subject {
         subject.setRoom("NULL");
         subject.setWidth(1439 - startTime);
         subject.setPeriod(period);
+        subject.setStartTime(startTime);
         return subject;
     }
 
@@ -246,22 +247,77 @@ class SubjectDay {
     public getSubject(index: number): Subject {
         return this.subjectList[index];
     }
+
+    public setSubjects(subjects: Subject[]): void {
+        this.subjectList = subjects;
+    }
 }
 
 class Table {
     private days = {
+        /**
+         * วันอาทิตย์ พรุ่งนี้ก็จะวันจันทร์แล้ว
+         */
         _0: new SubjectDay("Sunday", "อาทิตย์"),
+        /**
+         * วันจันทร์ ง่วง
+         */
         _1: new SubjectDay("Monday", "จันทร์"),
+        /**
+         * วันอังคาร
+         */
         _2: new SubjectDay("Tuesday", "อังคาร"),
+        /**
+         * วันพุธ
+         */
         _3: new SubjectDay("Wednesday", "พุธ"),
+        /**
+         * วันพฤหัสบดี
+         */
         _4: new SubjectDay("Thursday", "พฤหัสบดี"),
+        /**
+         * วันศุกร์ พรุ่งนี้จะได้หยุดแล้ว
+         */
         _5: new SubjectDay("Friday", "ศุกร์"),
+        /**
+         * วันเสาร์
+         */
         _6: new SubjectDay("Saturday", "เสาร์"),
     }
 
-    public static parse(data: any): Table {
-        //TODO : parse data
-        return new Table();
+    public static parse(data: GroupCourseRoot): Table {
+        let table = new Table();
+
+        let subjects = data.results[0].course.map((c) => {
+            let subject = new Subject();
+            let day = c.day_w_c != null ? ((code: string) => {
+                let day = 0;
+                for (let i = 0; i < 7; i++) {
+                    day++;
+                    if (code[i] == '1') break;
+                }
+                if (day == 7) day = 0;
+                return day;
+            })(c.day_w_c) : null;
+
+            subject.setNameTH(c.subject_name_th);
+            subject.setNameEN(c.subject_name_en);
+            subject.setDay(day);
+            subject.setRoom(c.room_name_en);
+            subject.setStartTime(c.time_start);
+            subject.setTeacherName(c.teacher_name_en);
+            return subject;
+        }).filter((s) => s.getDay() != null).forEach((s)=>{
+            if (s.getDay() == 0) table.days["_0"].putSubject(s);
+            if (s.getDay() == 1) table.days["_1"].putSubject(s);
+            if (s.getDay() == 2) table.days["_2"].putSubject(s);
+            if (s.getDay() == 3) table.days["_3"].putSubject(s);
+            if (s.getDay() == 4) table.days["_4"].putSubject(s);
+            if (s.getDay() == 5) table.days["_5"].putSubject(s);
+            if (s.getDay() == 6) table.days["_6"].putSubject(s);
+        });
+
+        return table;
     }
 }
 
@@ -649,8 +705,6 @@ const widgetBuilder = {
                         stack.addSpacer();
                         let stack2 = stack.addStack();
                         widgetBuilder.setStackSize(stack, stack2, 100, 100);
-                        stack2.addSpacer();
-
                         let foot1 = stack2.addStack();
                         stack2.addSpacer();
                         let foot2 = stack2.addStack();
