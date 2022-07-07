@@ -65,6 +65,25 @@ async function loadCourseData(token, cademicYear, semester, stdId) {
     };
     return await req.loadJSON();
 }
+/**
+ *
+ * @param token x-access-token
+ * @return {Promise<any>} response
+ */
+async function renew(token, body) {
+    let req = new Request("https://myapi.ku.th/auth/renew");
+    req.body = body;
+    req.headers = {
+        "accept": "*/*",
+        "accept-encoding": "gzip, deflate, br",
+        "accept-language": "th-TH,th;q=0.9",
+        "app-key": "txCR5732xYYWDGdd49M3R19o1OVwdRFc",
+        "content-type": "application/json",
+        "content-length": JSON.stringify(body).length.toString(),
+        "x-access-token": token
+    };
+    await req.loadJSON();
+}
 async function inputUsernamePassword() {
     let a = new Alert();
     a.addTextField("username");
@@ -86,7 +105,7 @@ class Subject {
     name_th = "";
     name_en = "";
     id = "";
-    day = null;
+    day;
     teacher_name = "";
     period = -1;
     room = "";
@@ -97,6 +116,7 @@ class Subject {
         subject.setRoom("NULL");
         subject.setWidth(1439 - startTime);
         subject.setPeriod(period);
+        subject.setStartTime(startTime);
         return subject;
     }
     getStartTime() {
@@ -193,20 +213,107 @@ class SubjectDay {
     getSubject(index) {
         return this.subjectList[index];
     }
+    getSubjectList() {
+        return this.subjectList;
+    }
+    setSubjects(subjects) {
+        this.subjectList = subjects;
+    }
+    getSubjectByTime(timeMinute) {
+        this.subjectList.forEach((s) => {
+            if (timeMinute < s.getEndTime() && timeMinute >= s.getStartTime())
+                return s;
+        });
+    }
 }
 class Table {
     days = {
+        /**
+         * วันอาทิตย์ พรุ่งนี้ก็จะวันจันทร์แล้ว
+         */
         _0: new SubjectDay("Sunday", "อาทิตย์"),
+        /**
+         * วันจันทร์ ง่วง
+         */
         _1: new SubjectDay("Monday", "จันทร์"),
+        /**
+         * วันอังคาร
+         */
         _2: new SubjectDay("Tuesday", "อังคาร"),
+        /**
+         * วันพุธ
+         */
         _3: new SubjectDay("Wednesday", "พุธ"),
+        /**
+         * วันพฤหัสบดี
+         */
         _4: new SubjectDay("Thursday", "พฤหัสบดี"),
+        /**
+         * วันศุกร์ พรุ่งนี้จะได้หยุดแล้ว
+         */
         _5: new SubjectDay("Friday", "ศุกร์"),
+        /**
+         * วันเสาร์
+         */
         _6: new SubjectDay("Saturday", "เสาร์"),
     };
+    getDays(day) {
+        if (day < 0 || day >= 8)
+            throw new Error("Invalid day: " + day);
+        let key = Object.keys(this.days).at(Math.floor(day));
+        return key == null ? new SubjectDay("ERROR", "ERROR") : this.days[key];
+    }
+    getCurrentSubject() {
+        let date = new Date();
+        return this.getDays(date.getDay()).getSubjectByTime((date.getHours() * 60) + date.getMinutes());
+    }
     static parse(data) {
-        //TODO : parse data
-        return new Table();
+        if (data == null)
+            return new Table();
+        let table = new Table();
+        data.results[0].course.map((c) => {
+            let subject = new Subject();
+            let day = c.day_w_c != null ? ((code) => {
+                let day = 0;
+                for (let i = 0; i < 7; i++) {
+                    day++;
+                    if (code[i] == '1')
+                        break;
+                }
+                if (day == 7)
+                    day = 0;
+                return day;
+            })(c.day_w_c) : undefined;
+            let timeCal = (time) => {
+                let temp = time.replace(" ", "").split(":").map(t => Number.parseInt(t));
+                return (temp[0] * 60) + temp[1];
+            };
+            subject.setNameTH(c.subject_name_th);
+            subject.setNameEN(c.subject_name_en);
+            subject.setDay(day);
+            subject.setRoom(c.room_name_en);
+            subject.setStartTime(c.time_start);
+            subject.setTeacherName(c.teacher_name_en);
+            subject.setWidth(timeCal(c.time_to) - timeCal(c.time_from));
+            return subject;
+        }).filter((s) => s.getDay() != null).forEach((s) => {
+            let subject_day = s.getDay();
+            if (subject_day != null) {
+                table.getDays(subject_day).putSubject(s);
+                console.log("Subject loaded: "
+                    + table.getDays(subject_day).getDayNameEN()
+                    + " " + s.getNameEN()
+                    + " " + s.getID());
+            }
+        });
+        for (let i = 0; i < 7; i++) {
+            let sl = table.getDays(i).getSubjectList();
+            for (let j = 0; j < sl.length; j++) {
+                sl[j].setPeriod(j);
+                sl[j].setWidth;
+            }
+        }
+        return table;
     }
 }
 const menus = {
@@ -270,6 +377,8 @@ async function getAllDownloadData() {
     if (schedule.code != "success")
         throw "Failed to get schedule data code " + schedule.code;
     console.log("Downloading Subject Data...");
+    //let renew_response = await renew(r.accesstoken, { renewtoken: r.renewtoken });
+    //console.log(JSON.stringify(renew_response));
     let res = await loadCourseData(r.accesstoken, schedule.results[0].academicYr.toString(), schedule.results[0].semester.toString(), r.user.student.stdId);
     if (res == null || res.code != "success" || res.results)
         throw "Failed to download subject data from server. : " + res.code;
@@ -381,7 +490,7 @@ const widgetBuilder = {
     },
     async debug() {
         let widget = new ListWidget();
-        let text = widget.addText(JSON.stringify(storage));
+        let text = widget.addText(JSON.stringify(temp));
         text.font = Font.systemFont(1);
         return widget;
     },
@@ -422,7 +531,7 @@ const widgetBuilder = {
                 let h2 = stack.addStack();
                 widgetBuilder.setStackSize(stack, h2, 99 - h1_size, 100);
                 let date = new Date();
-                this.infomation.build(h2, Subject.getEmptySubject(date.getMinutes() + (date.getHours() * 60)));
+                this.infomation.build(h2, temp.table?.getCurrentSubject() ?? Subject.getEmptySubject(date.getMinutes() + (date.getHours() * 60)));
             },
             profile: {
                 build(stack) {
@@ -459,17 +568,17 @@ const widgetBuilder = {
                         widgetBuilder.setStackSize(stack, top1, 100, 30);
                         widgetBuilder.setStackSize(stack, mid, 100, 30);
                         widgetBuilder.setStackSize(stack, bottom, 100, 30);
-                        let fullName = `${storage.user?.root?.user.titleTh}
- ${storage.user?.root?.user.firstNameTh}
- ${storage.user?.root?.user.lastNameTh}`.replace("\n", "");
+                        let fullName = `${temp.user_root?.user.titleTh}
+ ${temp.user_root?.user.firstNameTh}
+ ${temp.user_root?.user.lastNameTh}`.replace("\n", "");
                         let text_name = top1.addText(fullName);
                         text_name.lineLimit = 1;
                         text_name.font = Font.systemFont(9);
-                        let mid_text_1 = mid.addText("คณะ : " + storage.user?.root?.user.student.facultyNameTh
+                        let mid_text_1 = mid.addText("คณะ : " + temp.user_root?.user.student.facultyNameTh
                             ?? "NULL");
-                        let mid_text_2 = mid.addText("สาขา : " + storage.user?.root?.user.student.departmentNameTh
+                        let mid_text_2 = mid.addText("สาขา : " + temp.user_root?.user.student.departmentNameTh
                             ?? "NULL");
-                        let bottom_text = bottom.addText(storage.user?.root?.user.student.studentStatusNameEn ?? "NULL");
+                        let bottom_text = bottom.addText(temp.user_root?.user.student.studentStatusNameEn ?? "NULL");
                         [mid_text_1, mid_text_2, bottom_text].forEach(t => {
                             t.lineLimit = 2;
                             t.font = Font.systemFont(11);
@@ -528,7 +637,6 @@ const widgetBuilder = {
                         stack.addSpacer();
                         let stack2 = stack.addStack();
                         widgetBuilder.setStackSize(stack, stack2, 100, 100);
-                        stack2.addSpacer();
                         let foot1 = stack2.addStack();
                         stack2.addSpacer();
                         let foot2 = stack2.addStack();
@@ -614,16 +722,21 @@ if (config.runsInApp) {
 }
 else if (config.runsInWidget) {
     if (fileManager.isSaveFileExist()) {
-        if (config.widgetFamily == "extraLarge") {
-            let saveData = fileManager.getSaveData();
-            temp.stdImage = fileManager.getSaveStdImage();
-            storage.groupCourse = saveData.groupCourse;
-            storage.user = saveData.user;
-            temp.setting = fileManager.getSaveSetting();
-            Script.setWidget(widgetBuilder.extraLarge.build());
+        try {
+            if (config.widgetFamily == "extraLarge") {
+                let saveData = fileManager.getSaveData();
+                temp.stdImage = fileManager.getSaveStdImage();
+                temp.table = Table.parse(saveData.groupCourse);
+                temp.user_root = saveData.user?.root;
+                temp.setting = fileManager.getSaveSetting();
+                Script.setWidget(widgetBuilder.extraLarge.build());
+            }
+            else
+                Script.setWidget(widgetBuilder.notSupported());
         }
-        else
-            Script.setWidget(widgetBuilder.notSupported());
+        catch (error) {
+            throw "Save files are corrupted. Please download data again. " + error;
+        }
     }
     else
         Script.setWidget(widgetBuilder.noData());

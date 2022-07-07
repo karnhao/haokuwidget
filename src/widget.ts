@@ -5,7 +5,10 @@ import { Settings } from './interfaces/settings';
 
 interface TemporaryData {
     stdImage?: Image,
-    setting?: Settings
+    setting?: Settings,
+    table?: Table,
+    user_root?: Root,
+
 }
 
 const temp: TemporaryData = {}
@@ -89,6 +92,26 @@ async function loadCourseData(token: string, cademicYear: string, semester: stri
     return await req.loadJSON();
 }
 
+/**
+ * 
+ * @param token x-access-token
+ * @return {Promise<any>} response
+ */
+async function renew(token: string, body: { renewtoken: string }): Promise<any> {
+    let req = new Request("https://myapi.ku.th/auth/renew");
+    req.body = body
+    req.headers = {
+        "accept": "*/*",
+        "accept-encoding": "gzip, deflate, br",
+        "accept-language": "th-TH,th;q=0.9",
+        "app-key": "txCR5732xYYWDGdd49M3R19o1OVwdRFc",
+        "content-type": "application/json",
+        "content-length": JSON.stringify(body).length.toString(),
+        "x-access-token": token
+    };
+    await req.loadJSON();
+}
+
 async function inputUsernamePassword(): Promise<{ username: string, password: string } | void> {
     let a = new Alert();
     a.addTextField("username");
@@ -110,7 +133,7 @@ class Subject {
     private name_th: string = "";
     private name_en: string = "";
     private id: string = "";
-    private day: number | null = null;
+    private day: number | undefined;
     private teacher_name: string = "";
     private period: number = -1;
     private room: string = "";
@@ -170,11 +193,11 @@ class Subject {
         this.id = value;
     }
 
-    public getDay(): number | null {
+    public getDay(): number | undefined {
         return this.day;
     }
 
-    public setDay(value: number | null) {
+    public setDay(value?: number) {
         this.day = value;
     }
 
@@ -248,8 +271,18 @@ class SubjectDay {
         return this.subjectList[index];
     }
 
+    public getSubjectList(): Subject[] {
+        return this.subjectList;
+    }
+
     public setSubjects(subjects: Subject[]): void {
         this.subjectList = subjects;
+    }
+
+    public getSubjectByTime(timeMinute: number): Subject | void {
+        this.subjectList.forEach((s) => {
+            if (timeMinute < s.getEndTime() && timeMinute >= s.getStartTime()) return s;
+        });
     }
 }
 
@@ -285,10 +318,21 @@ class Table {
         _6: new SubjectDay("Saturday", "เสาร์"),
     }
 
-    public static parse(data: GroupCourseRoot): Table {
-        let table = new Table();
+    public getDays(day: number): SubjectDay {
+        if (day < 0 || day >= 8) throw new Error("Invalid day: " + day);
+        let key = (Object.keys(this.days) as Array<keyof typeof this.days>).at(Math.floor(day));
+        return key == null ? new SubjectDay("ERROR", "ERROR") : this.days[key];
+    }
 
-        let subjects = data.results[0].course.map((c) => {
+    public getCurrentSubject(): Subject | void {
+        let date = new Date();
+        return this.getDays(date.getDay()).getSubjectByTime((date.getHours() * 60) + date.getMinutes());
+    }
+
+    public static parse(data?: GroupCourseRoot): Table {
+        if (data == null) return new Table();
+        let table = new Table();
+        data.results[0].course.map((c) => {
             let subject = new Subject();
             let day = c.day_w_c != null ? ((code: string) => {
                 let day = 0;
@@ -298,7 +342,12 @@ class Table {
                 }
                 if (day == 7) day = 0;
                 return day;
-            })(c.day_w_c) : null;
+            })(c.day_w_c) : undefined;
+
+            let timeCal = (time: string) => {
+                let temp = time.replace(" ", "").split(":").map(t => Number.parseInt(t));
+                return (temp[0] * 60) + temp[1];
+            }
 
             subject.setNameTH(c.subject_name_th);
             subject.setNameEN(c.subject_name_en);
@@ -306,16 +355,26 @@ class Table {
             subject.setRoom(c.room_name_en);
             subject.setStartTime(c.time_start);
             subject.setTeacherName(c.teacher_name_en);
+            subject.setWidth(timeCal(c.time_to) - timeCal(c.time_from));
             return subject;
-        }).filter((s) => s.getDay() != null).forEach((s)=>{
-            if (s.getDay() == 0) table.days["_0"].putSubject(s);
-            if (s.getDay() == 1) table.days["_1"].putSubject(s);
-            if (s.getDay() == 2) table.days["_2"].putSubject(s);
-            if (s.getDay() == 3) table.days["_3"].putSubject(s);
-            if (s.getDay() == 4) table.days["_4"].putSubject(s);
-            if (s.getDay() == 5) table.days["_5"].putSubject(s);
-            if (s.getDay() == 6) table.days["_6"].putSubject(s);
+        }).filter((s) => s.getDay() != null).forEach((s) => {
+            let subject_day = s.getDay();
+            if (subject_day != null) {
+                table.getDays(subject_day).putSubject(s);
+                console.log("Subject loaded: "
+                    + table.getDays(subject_day).getDayNameEN()
+                    + " " + s.getNameEN()
+                    + " " + s.getID());
+            }
         });
+
+        for (let i = 0; i < 7; i++) {
+            let sl = table.getDays(i).getSubjectList();
+            for (let j = 0; j < sl.length; j++) {
+                sl[j].setPeriod(j);
+                sl[j].setWidth
+            }
+        }
 
         return table;
     }
@@ -391,6 +450,8 @@ async function getAllDownloadData() {
     );
     if (schedule.code != "success") throw "Failed to get schedule data code " + schedule.code;
     console.log("Downloading Subject Data...");
+    //let renew_response = await renew(r.accesstoken, { renewtoken: r.renewtoken });
+    //console.log(JSON.stringify(renew_response));
     let res = await loadCourseData(
         r.accesstoken,
         schedule.results[0].academicYr.toString(),
@@ -528,7 +589,7 @@ const widgetBuilder = {
     },
     async debug(): Promise<ListWidget> {
         let widget = new ListWidget();
-        let text = widget.addText(JSON.stringify(storage));
+        let text = widget.addText(JSON.stringify(temp));
         text.font = Font.systemFont(1);
         return widget;
     },
@@ -575,7 +636,7 @@ const widgetBuilder = {
 
                 widgetBuilder.setStackSize(stack, h2, 99 - h1_size, 100);
                 let date = new Date();
-                this.infomation.build(h2, Subject.getEmptySubject(date.getMinutes() + (date.getHours() * 60)));
+                this.infomation.build(h2, temp.table?.getCurrentSubject() ?? Subject.getEmptySubject(date.getMinutes() + (date.getHours() * 60)));
             },
             profile: {
                 build(stack: WidgetStack): void {
@@ -621,25 +682,25 @@ const widgetBuilder = {
                         widgetBuilder.setStackSize(stack, mid, 100, 30);
                         widgetBuilder.setStackSize(stack, bottom, 100, 30);
                         let fullName =
-                            `${storage.user?.root?.user.titleTh}
- ${storage.user?.root?.user.firstNameTh}
- ${storage.user?.root?.user.lastNameTh}`.replace("\n", "");
+                            `${temp.user_root?.user.titleTh}
+ ${temp.user_root?.user.firstNameTh}
+ ${temp.user_root?.user.lastNameTh}`.replace("\n", "");
                         let text_name = top1.addText(fullName);
                         text_name.lineLimit = 1;
                         text_name.font = Font.systemFont(9);
 
                         let mid_text_1 = mid.addText(
-                            "คณะ : " + storage.user?.root?.user.student.facultyNameTh
+                            "คณะ : " + temp.user_root?.user.student.facultyNameTh
                             ?? "NULL"
                         );
                         let mid_text_2 = mid.addText(
-                            "สาขา : " + storage.user?.root?.user.student.departmentNameTh
+                            "สาขา : " + temp.user_root?.user.student.departmentNameTh
                             ?? "NULL"
                         );
 
 
                         let bottom_text = bottom.addText(
-                            storage.user?.root?.user.student.studentStatusNameEn ?? "NULL"
+                            temp.user_root?.user.student.studentStatusNameEn ?? "NULL"
                         );
 
                         [mid_text_1, mid_text_2, bottom_text].forEach(t => {
@@ -790,14 +851,18 @@ if (config.runsInApp) {
     }
 } else if (config.runsInWidget) {
     if (fileManager.isSaveFileExist()) {
-        if (config.widgetFamily == "extraLarge") {
-            let saveData = fileManager.getSaveData();
-            temp.stdImage = fileManager.getSaveStdImage();
-            storage.groupCourse = saveData.groupCourse;
-            storage.user = saveData.user;
-            temp.setting = fileManager.getSaveSetting();
-            Script.setWidget(widgetBuilder.extraLarge.build());
-        } else Script.setWidget(widgetBuilder.notSupported());
+        try {
+            if (config.widgetFamily == "extraLarge") {
+                let saveData = fileManager.getSaveData();
+                temp.stdImage = fileManager.getSaveStdImage();
+                temp.table = Table.parse(saveData.groupCourse);
+                temp.user_root = saveData.user?.root;
+                temp.setting = fileManager.getSaveSetting();
+                Script.setWidget(widgetBuilder.extraLarge.build());
+            } else Script.setWidget(widgetBuilder.notSupported());
+        } catch (error) {
+            throw "Save files are corrupted. Please download data again. " + error;
+        }
     } else Script.setWidget(widgetBuilder.noData());
 }
 alertMessage("Done", "Progress completed without errors.");
