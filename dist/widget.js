@@ -47,11 +47,11 @@ async function getSchedule(token, stdStatusCode, campusCode, majorCode, userType
     return await req.loadJSON();
 }
 /**
- * @param token x-access-token
- * @param cademicYear ปีการศึกษา
- * @param semester เทอม เช่น 1
- * @param stdId Student ID
- */
+* @param token x-access-token
+* @param cademicYear ปีการศึกษา
+* @param semester เทอม เช่น 1
+* @param stdId Student ID
+*/
 async function loadCourseData(token, cademicYear, semester, stdId) {
     let req = new Request(`https://myapi.ku.th/std-profile/getGroupCourse?cademicYear=${cademicYear}&semester=${semester}&stdId=${stdId}`);
     req.headers = {
@@ -66,10 +66,10 @@ async function loadCourseData(token, cademicYear, semester, stdId) {
     return await req.loadJSON();
 }
 /**
- *
- * @param token x-access-token
- * @return {Promise<any>} response
- */
+*
+* @param token x-access-token
+* @return {Promise<any>} response
+*/
 async function renew(token, body) {
     let req = new Request("https://myapi.ku.th/auth/renew");
     req.body = body;
@@ -220,41 +220,44 @@ class SubjectDay {
         this.subjectList = subjects;
     }
     getSubjectByTime(timeMinute) {
-        this.subjectList.forEach((s) => {
+        let r;
+        for (let s of this.subjectList) {
             if (timeMinute < s.getEndTime() && timeMinute >= s.getStartTime())
-                return s;
-        });
+                r = s;
+            return;
+        };
+        return r;
     }
 }
 class Table {
     days = {
         /**
-         * วันอาทิตย์ พรุ่งนี้ก็จะวันจันทร์แล้ว
-         */
+        * วันอาทิตย์ พรุ่งนี้ก็จะวันจันทร์แล้ว
+        */
         _0: new SubjectDay("Sunday", "อาทิตย์"),
         /**
-         * วันจันทร์ ง่วง
-         */
+        * วันจันทร์ ง่วง
+        */
         _1: new SubjectDay("Monday", "จันทร์"),
         /**
-         * วันอังคาร
-         */
+        * วันอังคาร
+        */
         _2: new SubjectDay("Tuesday", "อังคาร"),
         /**
-         * วันพุธ
-         */
+        * วันพุธ
+        */
         _3: new SubjectDay("Wednesday", "พุธ"),
         /**
-         * วันพฤหัสบดี
-         */
+        * วันพฤหัสบดี
+        */
         _4: new SubjectDay("Thursday", "พฤหัสบดี"),
         /**
-         * วันศุกร์ พรุ่งนี้จะได้หยุดแล้ว
-         */
+        * วันศุกร์ พรุ่งนี้จะได้หยุดแล้ว
+        */
         _5: new SubjectDay("Friday", "ศุกร์"),
         /**
-         * วันเสาร์
-         */
+        * วันเสาร์
+        */
         _6: new SubjectDay("Saturday", "เสาร์"),
     };
     getDays(day) {
@@ -266,6 +269,15 @@ class Table {
     getCurrentSubject() {
         let date = new Date();
         return this.getDays(date.getDay()).getSubjectByTime((date.getHours() * 60) + date.getMinutes());
+    }
+    getNextSubject() {
+        let date = new Date();
+        try {
+            let c = this.getCurrentSubject();
+            let index = 0;
+            if (c != null) index = this.getCurrentSubject().getPeriod() + 1;
+            return this.getDays(date.getDay()).getSubject(index);
+        } catch (err) { }
     }
     static parse(data) {
         if (data == null)
@@ -285,6 +297,7 @@ class Table {
                 return day;
             })(c.day_w_c) : undefined;
             let timeCal = (time) => {
+                if (time == null) return 0;
                 let temp = time.replace(" ", "").split(":").map(t => Number.parseInt(t));
                 return (temp[0] * 60) + temp[1];
             };
@@ -318,9 +331,9 @@ class Table {
 }
 const menus = {
     /**
-     * แสดงเมนูเลือกรากฐาน ประกอบไปด้วย Actions, Settings and Cancel.
-     * @returns -1 is cancelled, 0 is Actions, 1 is Settings.
-     */
+    * แสดงเมนูเลือกรากฐาน ประกอบไปด้วย Actions, Settings and Cancel.
+    * @returns -1 is cancelled, 0 is Actions, 1 is Settings.
+    */
     rootMenus: async () => {
         let root = new Alert();
         root.addAction("Actions");
@@ -331,9 +344,9 @@ const menus = {
         return await root.present();
     },
     /**
-     * แสดงเมนูเลือกการกระทำ ประกอบไปด้วย Download Subject Data, Delete Subject Data and cancel.
-     * @returns -1 is cancelled, 0 is Download Subject Data and 1 is Delete Subject Data.
-     */
+    * แสดงเมนูเลือกการกระทำ ประกอบไปด้วย Download Subject Data, Delete Subject Data and cancel.
+    * @returns -1 is cancelled, 0 is Download Subject Data and 1 is Delete Subject Data.
+    */
     actionMenus: async () => {
         let a = new Alert();
         a.addAction(`Download Data${fileManager.isSaveFileExist() ? " (replace)" : ""}`);
@@ -345,12 +358,12 @@ const menus = {
         return await a.present();
     },
     /**
-     * แสดงเมนูการตั้งค่า ประกอบไปด้วย Background image and cancel.
-     * @returns a number
-     *  - -1 is cancelled,
-     *  - 0 is toggle profile picture.
-     *  - 1 is toggle profile infomation.
-     */
+    * แสดงเมนูการตั้งค่า ประกอบไปด้วย Background image and cancel.
+    * @returns a number
+    * - -1 is cancelled,
+    * - 0 is toggle profile picture.
+    * - 1 is toggle profile infomation.
+    */
     settingMenus: async () => {
         let s = new Alert();
         s.addAction(temp.setting?.showStdImage ? "Disable Profile Picture" : "Enable Profile Picture");
@@ -380,9 +393,9 @@ async function getAllDownloadData() {
     //let renew_response = await renew(r.accesstoken, { renewtoken: r.renewtoken });
     //console.log(JSON.stringify(renew_response));
     let res = await loadCourseData(r.accesstoken, schedule.results[0].academicYr.toString(), schedule.results[0].semester.toString(), r.user.student.stdId);
-    if (res == null || res.code != "success" || res.results)
+    if (res == null || res.code != "success" || !res.results)
         throw "Failed to download subject data from server. : " + res.code;
-    console.log(JSON.stringify(res, null, 2));
+    ;
     console.log("Successfully downloaded subject data from the server.");
     console.log("Downloading Student Image...");
     try {
@@ -402,9 +415,9 @@ const fileManager = {
         fm.writeString(saveFilePath, JSON.stringify(data));
     },
     /**
-     * This will error when save file is not exists.
-     * @returns Save data.
-     */
+    * This will error when save file is not exists.
+    * @returns Save data.
+    */
     getSaveData() {
         return JSON.parse(fm.readString(saveFilePath));
     },
@@ -430,9 +443,9 @@ const fileManager = {
         fm.writeString(saveSettingPath, JSON.stringify(data));
     },
     /**
-     * this will error when save file is not exists.
-     * @returns Settings object
-     */
+    * this will error when save file is not exists.
+    * @returns Settings object
+    */
     getSaveSetting() {
         return JSON.parse(fm.readString(saveSettingPath));
     },
@@ -513,6 +526,7 @@ const widgetBuilder = {
             widgetBuilder.setStackSize(stack, body, 100, 68);
             widgetBuilder.setStackSize(stack, footer, 100, 2);
             this.headers.build(header);
+            this.body.build(body);
             return widget;
         },
         headers: {
@@ -531,7 +545,7 @@ const widgetBuilder = {
                 let h2 = stack.addStack();
                 widgetBuilder.setStackSize(stack, h2, 99 - h1_size, 100);
                 let date = new Date();
-                this.infomation.build(h2, temp.table?.getCurrentSubject() ?? Subject.getEmptySubject(date.getMinutes() + (date.getHours() * 60)));
+                this.infomation.build(h2, temp.table?.getCurrentSubject() ?? temp.table?.getNextSubject() ?? Subject.getEmptySubject(date.getMinutes() + (date.getHours() * 60)));
             },
             profile: {
                 build(stack) {
@@ -568,9 +582,7 @@ const widgetBuilder = {
                         widgetBuilder.setStackSize(stack, top1, 100, 30);
                         widgetBuilder.setStackSize(stack, mid, 100, 30);
                         widgetBuilder.setStackSize(stack, bottom, 100, 30);
-                        let fullName = `${temp.user_root?.user.titleTh}
- ${temp.user_root?.user.firstNameTh}
- ${temp.user_root?.user.lastNameTh}`.replace("\n", "");
+                        let fullName = `${temp.user_root?.user.titleTh} ${temp.user_root?.user.firstNameTh} ${temp.user_root?.user.lastNameTh}`.replace("\n", "");
                         let text_name = top1.addText(fullName);
                         text_name.lineLimit = 1;
                         text_name.font = Font.systemFont(9);
@@ -613,7 +625,7 @@ const widgetBuilder = {
                         let top2 = stack.addStack();
                         widgetBuilder.setStackSize(stack, top1, 50, 100);
                         widgetBuilder.setStackSize(stack, top2, 50, 100);
-                        let text1 = top1.addText("กำลังเรียนวิชา📚");
+                        let text1 = top1.addText("กำลังเรียนวิชา iii/ วิชาต่อไป📚");
                         top1.addSpacer();
                         top2.addSpacer();
                         let text2 = top2.addText("เวลา : " + subject.getLocaleTime());
@@ -627,7 +639,9 @@ const widgetBuilder = {
                 body: {
                     build(stack, subject) {
                         stack.layoutVertically();
+                        stack.addSpacer();
                         let text = stack.addText(subject.getNameTH());
+                        stack.addSpacer();
                         text.textColor = Color.yellow();
                     }
                 },
@@ -660,8 +674,10 @@ const widgetBuilder = {
         },
         body: {
             build(stack) {
-                stack.layoutHorizontally();
+                stack.layoutVertically();
                 stack.addText("Under development...");
+                let s = temp.table.getDays(1);
+                stack.addText(JSON.stringify(s));
             }
         }
     }
@@ -722,21 +738,22 @@ if (config.runsInApp) {
 }
 else if (config.runsInWidget) {
     if (fileManager.isSaveFileExist()) {
-        try {
-            if (config.widgetFamily == "extraLarge") {
-                let saveData = fileManager.getSaveData();
-                temp.stdImage = fileManager.getSaveStdImage();
-                temp.table = Table.parse(saveData.groupCourse);
-                temp.user_root = saveData.user?.root;
-                temp.setting = fileManager.getSaveSetting();
-                Script.setWidget(widgetBuilder.extraLarge.build());
-            }
-            else
-                Script.setWidget(widgetBuilder.notSupported());
+        // try {
+        if (config.widgetFamily == "extraLarge") {
+            let saveData = fileManager.getSaveData();
+            temp.stdImage = fileManager.getSaveStdImage();
+            temp.table = Table.parse(saveData.groupCourse);
+            temp.user_root = saveData.user?.root;
+            temp.setting = fileManager.getSaveSetting();
+            Script.setWidget(widgetBuilder.extraLarge.build());
         }
-        catch (error) {
-            throw "Save files are corrupted. Please download data again. " + error;
-        }
+        else
+            Script.setWidget(widgetBuilder.notSupported());
+
+        // catch (error) {
+        // throw new Error( "Save files are corrupted. Please download data again. " + error);
+        //
+        // }
     }
     else
         Script.setWidget(widgetBuilder.noData());

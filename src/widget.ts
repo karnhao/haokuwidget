@@ -8,7 +8,11 @@ interface TemporaryData {
     setting?: Settings,
     table?: Table,
     user_root?: Root,
+}
 
+interface TableStream {
+    update(date: Date | void): void,
+    correntSubject: Subject,
 }
 
 const temp: TemporaryData = {}
@@ -280,13 +284,20 @@ class SubjectDay {
     }
 
     public getSubjectByTime(timeMinute: number): Subject | void {
-        this.subjectList.forEach((s) => {
+        for (let s of this.subjectList) {
             if (timeMinute < s.getEndTime() && timeMinute >= s.getStartTime()) return s;
-        });
+        }
     }
 }
 
 class Table {
+    private stream = {
+        correntSubject: null,
+
+        update() {
+
+        }
+    }
     private days = {
         /**
          * วันอาทิตย์ พรุ่งนี้ก็จะวันจันทร์แล้ว
@@ -329,6 +340,10 @@ class Table {
         return this.getDays(date.getDay()).getSubjectByTime((date.getHours() * 60) + date.getMinutes());
     }
 
+    public getNextSubject(): Subject | void {
+
+    }
+
     public static parse(data?: GroupCourseRoot): Table {
         if (data == null) return new Table();
         let table = new Table();
@@ -345,6 +360,7 @@ class Table {
             })(c.day_w_c) : undefined;
 
             let timeCal = (time: string) => {
+                if (time == null) return 0;
                 let temp = time.replace(" ", "").split(":").map(t => Number.parseInt(t));
                 return (temp[0] * 60) + temp[1];
             }
@@ -355,6 +371,7 @@ class Table {
             subject.setRoom(c.room_name_en);
             subject.setStartTime(c.time_start);
             subject.setTeacherName(c.teacher_name_en);
+            subject.setID(c.subject_code);
             subject.setWidth(timeCal(c.time_to) - timeCal(c.time_from));
             return subject;
         }).filter((s) => s.getDay() != null).forEach((s) => {
@@ -414,9 +431,9 @@ const menus = {
     /**
      * แสดงเมนูการตั้งค่า ประกอบไปด้วย Background image and cancel.
      * @returns a number
-     *  - -1 is cancelled,
-     *  - 0 is toggle profile picture.
-     *  - 1 is toggle profile infomation.
+     * - -1 is cancelled,
+     * - 0 is toggle profile picture.
+     * - 1 is toggle profile infomation.
      */
     settingMenus: async (): Promise<number> => {
         let s = new Alert();
@@ -458,8 +475,7 @@ async function getAllDownloadData() {
         schedule.results[0].semester.toString(),
         r.user.student.stdId
     );
-    if (res == null || res.code != "success" || res.results) throw "Failed to download subject data from server. : " + res.code;
-    console.log(JSON.stringify(res, null, 2));
+    if (res == null || res.code != "success" || !res.results) throw "Failed to download subject data from server. : " + res.code;
     console.log("Successfully downloaded subject data from the server.");
     console.log("Downloading Student Image...")
     try {
@@ -617,6 +633,7 @@ const widgetBuilder = {
             widgetBuilder.setStackSize(stack, footer, 100, 2);
 
             this.headers.build(header);
+            this.body.build(body);
             return widget;
         },
         headers: {
@@ -682,9 +699,7 @@ const widgetBuilder = {
                         widgetBuilder.setStackSize(stack, mid, 100, 30);
                         widgetBuilder.setStackSize(stack, bottom, 100, 30);
                         let fullName =
-                            `${temp.user_root?.user.titleTh}
- ${temp.user_root?.user.firstNameTh}
- ${temp.user_root?.user.lastNameTh}`.replace("\n", "");
+                            `${temp.user_root?.user.titleTh} ${temp.user_root?.user.firstNameTh} ${temp.user_root?.user.lastNameTh}`.replace("\n", "");
                         let text_name = top1.addText(fullName);
                         text_name.lineLimit = 1;
                         text_name.font = Font.systemFont(9);
@@ -756,7 +771,9 @@ const widgetBuilder = {
                 body: {
                     build(stack: WidgetStack, subject: Subject): void {
                         stack.layoutVertically();
+                        stack.addSpacer();
                         let text = stack.addText(subject.getNameTH());
+                        stack.addSpacer();
                         text.textColor = Color.yellow();
                     }
                 },
@@ -790,7 +807,7 @@ const widgetBuilder = {
         },
         body: {
             build(stack: WidgetStack): void {
-                stack.layoutHorizontally();
+                stack.layoutVertically();
                 stack.addText("Under development...");
             }
         }
@@ -799,7 +816,7 @@ const widgetBuilder = {
 
 if (!fileManager.isSaveSettingExist()) {
     fileManager.saveSetting({
-        showStdImage: true,
+        showStdImage: false,
         showStdInfo: true
     });
 }
