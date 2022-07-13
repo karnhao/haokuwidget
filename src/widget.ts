@@ -11,8 +11,12 @@ interface TemporaryData {
 }
 
 interface TableStream {
-    update(date: Date | void): void,
-    correntSubject: Subject,
+    currentSubject: Subject | undefined,
+    currentSubjectDay: SubjectDay | undefined,
+    currentPeriod: number | undefined,
+    currentMinutes: number | undefined,
+    currentDays: number | undefined,
+    currentDate: Date | undefined
 }
 
 const temp: TemporaryData = {}
@@ -271,7 +275,7 @@ class SubjectDay {
         this.subjectList.push(subject);
     }
 
-    public getSubject(index: number): Subject {
+    public getSubject(index: number): Subject | undefined {
         return this.subjectList[index];
     }
 
@@ -279,25 +283,68 @@ class SubjectDay {
         return this.subjectList;
     }
 
+    public getSubjectListLength(): number {
+        return this.subjectList.length;
+    }
+
     public setSubjects(subjects: Subject[]): void {
         this.subjectList = subjects;
     }
 
-    public getSubjectByTime(timeMinute: number): Subject | void {
+    public getSubjectByTime(timeMinute: number): Subject | undefined {
+        return this.getSubject(this.getPeriod(timeMinute));
+    }
+
+    public getPeriod(timeMinute: number) {
+        let p = -1;
         for (let s of this.subjectList) {
-            if (timeMinute < s.getEndTime() && timeMinute >= s.getStartTime()) return s;
+            if (timeMinute < s.getStartTime()) return p;
+            p++;
+            if (timeMinute < s.getEndTime() && timeMinute >= s.getStartTime()) return p;
         }
+        return p + 1;
+    }
+
+    public getStartTime(): number {
+        return this.subjectList[0]?.getStartTime() ?? 0;
+    }
+
+    public getEndTime(): number {
+        return this.subjectList[this.getSubjectListLength() - 1]?.getEndTime() ?? 0;
     }
 }
 
 class Table {
-    private stream = {
-        correntSubject: null,
 
-        update() {
-
-        }
+    private streamData: TableStream = {
+        currentSubject: undefined,
+        currentSubjectDay: undefined,
+        currentPeriod: undefined,
+        currentMinutes: undefined,
+        currentDays: undefined,
+        currentDate: undefined
     }
+
+    private static dateToMinute(date: Date): number {
+        return (date.getHours() * 60) + date.getMinutes();
+    }
+
+    public updateStream(date: Date): void {
+        this.streamData.currentDate = date;
+        this.streamData.currentDays = date.getDay();
+        this.streamData.currentMinutes = Table.dateToMinute(date);
+        this.streamData.currentSubjectDay = this.getDays(date.getDay());
+        this.streamData.currentPeriod = this.streamData.currentSubjectDay.getPeriod(this.streamData.currentMinutes);
+        this.streamData.currentSubject = this.streamData.currentSubjectDay
+            .getSubject(this.streamData.currentPeriod) ?? Subject.getEmptySubject(
+                this.streamData.currentPeriod == -1 ? 0 :
+                this.streamData.currentPeriod == this.streamData.currentSubjectDay.getSubjectListLength()
+                ? this.streamData.currentSubjectDay.getEndTime()
+                : this.streamData.currentMinutes,
+                this.streamData.currentPeriod
+            );
+    }
+
     private days = {
         /**
          * วันอาทิตย์ พรุ่งนี้ก็จะวันจันทร์แล้ว
@@ -333,6 +380,10 @@ class Table {
         if (day < 0 || day >= 8) throw new Error("Invalid day: " + day);
         let key = (Object.keys(this.days) as Array<keyof typeof this.days>).at(Math.floor(day));
         return key == null ? new SubjectDay("ERROR", "ERROR") : this.days[key];
+    }
+
+    public stream(): TableStream {
+        return this.streamData;
     }
 
     public getCurrentSubject(): Subject | void {
