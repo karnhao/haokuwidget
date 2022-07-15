@@ -11,12 +11,16 @@ interface TemporaryData {
 }
 
 interface TableStream {
-    currentSubject: Subject | undefined,
-    currentSubjectDay: SubjectDay | undefined,
-    currentPeriod: number | undefined,
-    currentMinutes: number | undefined,
-    currentDays: number | undefined,
-    currentDate: Date | undefined
+    currentSubject: Subject,
+    currentSubjectDay: SubjectDay,
+    currentPeriod: number,
+    currentMinutes: number,
+    currentDays: number,
+    currentDate: Date
+}
+
+interface TableStreamNotNull {
+
 }
 
 const temp: TemporaryData = {}
@@ -316,19 +320,26 @@ class SubjectDay {
 
 class Table {
 
+    /**
+     * เข้าถึงข้อมูลง่ายๆ ที่ streamData ผ่านทาง method stream()
+     */
     private streamData: TableStream = {
-        currentSubject: undefined,
-        currentSubjectDay: undefined,
-        currentPeriod: undefined,
-        currentMinutes: undefined,
-        currentDays: undefined,
-        currentDate: undefined
+        currentSubject: new Subject(),
+        currentSubjectDay: new SubjectDay(),
+        currentPeriod: -1,
+        currentMinutes: -1,
+        currentDays: -1,
+        currentDate: new Date()
     }
 
     private static dateToMinute(date: Date): number {
         return (date.getHours() * 60) + date.getMinutes();
     }
 
+    /**
+     * update stream data
+     * @param date
+     */
     public updateStream(date: Date): void {
         this.streamData.currentDate = date;
         this.streamData.currentDays = date.getDay();
@@ -338,11 +349,22 @@ class Table {
         this.streamData.currentSubject = this.streamData.currentSubjectDay
             .getSubject(this.streamData.currentPeriod) ?? Subject.getEmptySubject(
                 this.streamData.currentPeriod == -1 ? 0 :
-                this.streamData.currentPeriod == this.streamData.currentSubjectDay.getSubjectListLength()
-                ? this.streamData.currentSubjectDay.getEndTime()
-                : this.streamData.currentMinutes,
+                    this.streamData.currentPeriod == this.streamData.currentSubjectDay.getSubjectListLength()
+                        ? this.streamData.currentSubjectDay.getEndTime()
+                        : this.streamData.currentMinutes,
                 this.streamData.currentPeriod
             );
+    }
+
+    /**
+     * รับข้อมูล stream คือข้อมูลที่จะเข้าถึงง่าย เช่นข้อมูลวิชาปัจจุบัน. (stream จะถูก update ครั้งนึงในคำสั่ง Table.parse()).
+     * @param update จะ update stream หรือไม่ default เป็น false
+     * @param date ระบุเวลา default จะเป็นเวลาปัจจุบัน เพื่อข้อมูลจำพวกวิชาปัจจุบันจะได้สอดข้องกัน เมื่อ update เป็น false parameter นี้จะไม่ได้ใช้งาน และจะเป็นค่า undefined โดย default
+     * @returns stream data
+     */
+    public stream(update: boolean = false, date: Date | undefined = update ? new Date() : undefined): TableStream {
+        if (update && date) this.updateStream(date);
+        return this.streamData;
     }
 
     private days = {
@@ -382,20 +404,26 @@ class Table {
         return key == null ? new SubjectDay("ERROR", "ERROR") : this.days[key];
     }
 
-    public stream(): TableStream {
-        return this.streamData;
-    }
-
+    /**
+     * สามารถไปใช้ stream() แล้วเข้าถึงวิชาปัจจุบันแทนได้ และเร็วกว่าด้วย แต่ถ้าไม่ใช้ข้อมูล stream ก็ใช้ method นี้ได้เช่นกัน
+     * @returns Subject or null
+     */
     public getCurrentSubject(): Subject | void {
         let date = new Date();
-        return this.getDays(date.getDay()).getSubjectByTime((date.getHours() * 60) + date.getMinutes());
+        return this.getDays(date.getDay()).getSubjectByTime(Table.dateToMinute(date));
     }
 
     public getNextSubject(): Subject | void {
 
     }
 
-    public static parse(data?: GroupCourseRoot): Table {
+    /**
+     * แปลงข้อมูลดิบมาเป็น object ที่ใช้งานง่ายขึ้น แต่ข้อมูลบางอย่างที่ไม่จำเป็นจะหายไป
+     * @param data ข้อมูลดิบ
+     * @param date เวลาอ้างอิง ใช้สำหรับข้อมูล stream
+     * @returns 
+     */
+    public static parse(data?: GroupCourseRoot, date: Date = new Date()): Table {
         if (data == null) return new Table();
         let table = new Table();
         data.results[0].course.map((c) => {
@@ -443,6 +471,8 @@ class Table {
                 sl[j].setWidth
             }
         }
+
+        table.updateStream(date);
 
         return table;
     }
@@ -518,8 +548,8 @@ async function getAllDownloadData() {
     );
     if (schedule.code != "success") throw "Failed to get schedule data code " + schedule.code;
     console.log("Downloading Subject Data...");
-    //let renew_response = await renew(r.accesstoken, { renewtoken: r.renewtoken });
-    //console.log(JSON.stringify(renew_response));
+    let renew_response = await renew(r.accesstoken, { renewtoken: r.renewtoken });
+    console.log(JSON.stringify(renew_response));
     let res = await loadCourseData(
         r.accesstoken,
         schedule.results[0].academicYr.toString(),
