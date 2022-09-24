@@ -17,5 +17,5 @@ This widget can display a list of subject on your home screen depending on your 
 
  # Contact
   - Discord : karnhao#5238
-  - eMail : karn0888422952@gmail.com
+  - eMail : srv33605.com
   - Tel : 094-698-1168
